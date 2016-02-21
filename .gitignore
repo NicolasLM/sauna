@@ -1,0 +1,6 @@
+__pycache__
+*.pyc
+sauna.egg-info
+venv
+sauna.yml
+sauna-sample.yml
