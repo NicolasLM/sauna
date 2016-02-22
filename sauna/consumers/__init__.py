@@ -5,6 +5,8 @@ import logging
 class Consumer:
 
     def __init__(self, config):
+        if config is None:
+            config = {}
         self.stale_age = config.get('stale_age', 300)
         self.retry_delay = 10
 
