@@ -33,12 +33,16 @@ def main():
     logging.getLogger('requests').setLevel(logging.ERROR)
 
     if args.get('sample'):
-        file_path = sauna.assemble_config_sample('./')
+        sauna_instance = sauna.Sauna()
+        file_path = sauna_instance.assemble_config_sample('./')
         print('Created file {}'.format(file_path))
-    elif args.get('list-checks'):
-        for name in sauna.get_checks_name(conf_file):
-            print('{}'.format(name))
     else:
-        sauna.launch(conf_file)
+        config = sauna.read_config(conf_file)
+        sauna_instance = sauna.Sauna(config)
+        if args.get('list-checks'):
+            for name in sauna_instance.get_checks_name():
+                print('{}'.format(name))
+        else:
+            sauna_instance.launch()
 
     logging.shutdown()
