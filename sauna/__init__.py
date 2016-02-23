@@ -5,7 +5,7 @@ import logging
 import time
 import socket
 import os
-from textwrap import indent, dedent
+import textwrap
 import signal
 
 from sauna import plugins, consumers
@@ -51,12 +51,12 @@ def assemble_config_sample(path):
     sample += '\nconsumers:\n'
 
     for c in consumers.get_all_consumers():
-        sample += indent(dedent(c.config_sample()), '  ')
+        sample += textwrap.indent(textwrap.dedent(c.config_sample()), '  ')
 
     sample += '\nplugins:\n'
 
     for p in plugins.get_all_plugins():
-        sample += indent(dedent(p.config_sample()), '  ')
+        sample += textwrap.indent(textwrap.dedent(p.config_sample()), '  ')
 
     file_path = os.path.join(path, 'sauna-sample.yml')
     with open(file_path, 'w') as f:
