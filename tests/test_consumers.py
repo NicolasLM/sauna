@@ -1,9 +1,8 @@
 import unittest
-from unittest import mock
 import threading
 import time
 
-from .context import sauna
+from .context import sauna, mock
 
 
 class DumbConsumer(sauna.consumers.Consumer):

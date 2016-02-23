@@ -20,7 +20,7 @@ class Plugin:
 
     def __init__(self, config):
         if config is None:
-            config={}
+            config = {}
         self.config = config
 
     @classmethod

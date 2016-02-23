@@ -4,7 +4,7 @@ See:
 https://packaging.python.org/en/latest/distributing.html
 https://github.com/pypa/sampleproject
 """
-from setuptools import setup
+from setuptools import setup, find_packages
 from codecs import open
 from os import path
 
@@ -43,16 +43,21 @@ setup(
 
     keywords='monitoring health checks nagios shinken',
 
-    packages=['sauna'],
+    packages=find_packages(exclude=['tests']),
 
     install_requires=[
         'docopt',
         'PyYAML'
     ],
 
+    tests_require=[
+        'nose',
+        'pep8'
+    ],
+
     entry_points={
         'console_scripts': [
-            'sauna=sauna.main:main',
+            'sauna = sauna.main:main',
         ],
     },
 
