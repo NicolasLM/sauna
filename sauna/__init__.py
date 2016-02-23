@@ -32,17 +32,16 @@ class DependencyError(Exception):
         return self.msg
 
 
-def read_config(config_dir):
+def read_config(config_file):
     # importing yaml here because dependency is not installed
     # when fetching __version__ from setup.py
     import yaml
 
-    file_path = os.path.join(config_dir, 'sauna.yml')
     try:
-        with open(file_path) as f:
+        with open(config_file) as f:
             return yaml.safe_load(f)
     except OSError as e:
-        print('Cannot read configuration file {}: {}'.format(file_path, e))
+        print('Cannot read configuration file {}: {}'.format(config_file, e))
         exit(1)
 
 
@@ -152,10 +151,10 @@ def term_handler(*args):
         logging.info('Exiting...')
 
 
-def launch(config_dir):
+def launch(config_file):
 
     # Fetch configuration settings
-    config = read_config(config_dir)
+    config = read_config(config_file)
     plugins_config = config['plugins']
     consumers_config = config['consumers']
     periodicity = config.get('periodicity', 120)

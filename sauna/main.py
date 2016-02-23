@@ -2,15 +2,16 @@
 """Health checker
 
 Usage:
-  health.py sample [PATH]
-  health.py [PATH] [--level=<lvl>]
-  health.py (-h | --help)
-  health.py --version
+  main.py sample
+  main.py [--level=<lvl>] [--config=FILE]
+  main.py (-h | --help)
+  main.py --version
 
 Options:
   -h --help      Show this screen.
   --version      Show version.
   --level=<lvl>  Log level [default: info].
+  --config=FILE  Config file [default: sauna.yml].
 
 """
 import logging
@@ -22,7 +23,7 @@ import sauna
 
 def main():
     args = docopt(__doc__, version=sauna.__version__)
-    path = args['PATH'] or ''
+    conf_file = args['--config']
     logging.basicConfig(
         format='%(asctime)s - %(levelname)-8s - %(message)s',
         datefmt='%Y/%m/%d %H:%M:%S',
@@ -31,10 +32,10 @@ def main():
     logging.getLogger('requests').setLevel(logging.ERROR)
 
     if args.get('sample'):
-        file_path = sauna.assemble_config_sample(path)
+        file_path = sauna.assemble_config_sample('./')
         print('Created file {}'.format(file_path))
 
     else:
-        sauna.launch(path)
+        sauna.launch(conf_file)
 
     logging.shutdown()

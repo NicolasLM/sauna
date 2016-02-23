@@ -19,6 +19,8 @@ class Plugin:
     """
 
     def __init__(self, config):
+        if config is None:
+            config={}
         self.config = config
 
     @classmethod
