@@ -140,14 +140,15 @@ must_stop = threading.Event()
 def run_producer(plugins_config, periodicity, hostname):
     while True:
         for service_check in launch_all_checks(plugins_config, hostname):
+            logging.debug('Pushing to main queue: {}'.format(service_check))
             q.put(service_check)
         if must_stop.wait(timeout=periodicity):
             break
     logging.debug('Exited producer thread')
 
 
-def run_consumer(consumers_config):
-    consumer_name, consumer_config = consumers_config.popitem()
+def run_consumer(consumer_name, consumer_config, consumer_queue):
+    logging.debug('Running {} with {}'.format(consumer_name, consumer_config))
     try:
         consumer = consumers.get_consumer(consumer_name)(consumer_config)
     except DependencyError as e:
@@ -155,11 +156,21 @@ def run_consumer(consumers_config):
         exit(1)
 
     while not must_stop.is_set():
-        service_check = q.get()
+        service_check = consumer_queue.get()
+        logging.debug('consumer {}  get {}'.format(consumer_name, service_check))
         if isinstance(service_check, threading.Event):
             continue
         consumer.try_send(service_check, must_stop)
-    logging.debug('Exited consumer thread')
+    logging.debug('Exited consumer {} thread'.format(consumer_name))
+
+
+def run_replicator_queue(consumers_queue):
+    while not must_stop.is_set():
+        data = q.get()
+        for consumer_queue in consumers_queue:
+            logging.debug('Pushing {}'.format(data))
+            consumer_queue.put(data)
+    logging.debug('Exited replicator thread')
 
 
 def term_handler(*args):
@@ -184,18 +195,38 @@ def launch(config_file):
         name='producer', target=run_producer,
         args=(plugins_config, periodicity, hostname)
     )
-    consumer = threading.Thread(
-        name='consumer', target=run_consumer,
-        args=(consumers_config,)
-    )
-    consumer.start()
     producer.start()
+
+    consumers = []
+    consumers_queue = []
+    for consumer_name, consumer_config in consumers_config.items():
+        consumeur_queue = queue.Queue()
+        consumers_queue.append(consumeur_queue)
+
+        consumer = threading.Thread(
+            name='consumer_{}'.format(consumer_name), target=run_consumer,
+            args=(consumer_name, consumer_config, consumeur_queue)
+        )
+        consumer.start()
+        consumers.append(consumer)
+
+    replicator = threading.Thread(
+        name='replicator', target=run_replicator_queue,
+        args=(consumers_queue,)
+    )
+    replicator.start()
 
     signal.signal(signal.SIGTERM, term_handler)
     signal.signal(signal.SIGINT, term_handler)
 
+
     producer.join()
     term_handler()
-    consumer.join()
+    replicator.join()
+
+    for consumer in consumers:
+        consumer.join()
+
+
 
     logging.debug('Exited main thread')
