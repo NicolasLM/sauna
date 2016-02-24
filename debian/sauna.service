@@ -1,0 +1,12 @@
+[Unit]
+Description=Sauna health check daemon
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/sauna --config /etc/sauna.yml
+User=sauna
+
+[Install]
+WantedBy=multi-user.target

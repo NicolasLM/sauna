@@ -1,0 +1,24 @@
+#!/bin/sh
+set -e
+
+
+delete_base_config_file () {
+
+    if [ -f /etc/sauna.yml ]; then
+        rm /etc/sauna.yml
+    fi
+
+}
+
+
+case "$1" in
+
+    purge)
+        delete_base_config_file ;;
+
+esac
+
+
+#DEBHELPER#
+
+exit 0
