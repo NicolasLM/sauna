@@ -65,8 +65,16 @@ def assemble_config_sample(path):
     return file_path
 
 
-def launch_all_checks(plugins_config, hostname):
+def get_checks_name(config_file):
+    config = read_config(config_file)
+    plugins_config = config['plugins']
+    checks = get_all_checks(plugins_config)
+    return [check.name for check in checks]
 
+
+def get_all_checks(plugins_config):
+    checks = []
+    deps_error = []
     for plugin_name, plugin_data in plugins_config.items():
 
         # Load plugin
@@ -80,13 +88,13 @@ def launch_all_checks(plugins_config, hostname):
         try:
             plugin = Plugin(plugin_data.get('config', {}))
         except DependencyError as e:
-            print(str(e))
-            exit(1)
+            deps_error.append(str(e))
+            continue
 
         # Launch plugin checks
         for check in plugin_data['checks']:
-
             check_func = getattr(plugin, check['type'])
+
             if not check_func:
                 print('Unknown check {} on plugin {}'.format(check['type'],
                                                              plugin_name))
@@ -96,18 +104,29 @@ def launch_all_checks(plugins_config, hostname):
                 plugin_name, check['type']
             ).lower())
 
+            checks.append(plugins.Check(check_name, check_func, check))
+    if deps_error:
+        for error in deps_error:
+            print(error)
+        exit(1)
+    return checks
+
+
+def launch_all_checks(plugins_config, hostname):
+    for check in get_all_checks(plugins_config):
+
             try:
-                status, output = check_func(check)
+                status, output = check.run_check()
             except Exception as e:
                 logging.warning('Could not run check {}: {}'.format(
-                    check_name, str(e)
+                    check.name, str(e)
                 ))
                 status = 3
                 output = str(e)
             s = ServiceCheck(
                 timestamp=int(time.time()),
                 hostname=hostname,
-                name=check_name,
+                name=check.name,
                 status=status,
                 output=output
             )

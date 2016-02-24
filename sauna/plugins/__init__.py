@@ -70,6 +70,16 @@ class Plugin:
         return check_config
 
 
+class Check:
+    def __init__(self, name, check_func, config):
+        self.name = name
+        self.check_func = check_func
+        self.config = config
+
+    def run_check(self):
+        return self.check_func(self.config)
+
+
 class PsutilPlugin(Plugin):
 
     def __init__(self, config):
