@@ -135,6 +135,12 @@ def launch_all_checks(plugins_config, hostname):
 
 q = queue.Queue()
 must_stop = threading.Event()
+try:
+    # In Python 3.2 threading.Event is a factory function
+    # the real class lives in threading._Event
+    event_type = threading._Event
+except AttributeError:
+    event_type = threading.Event
 
 
 def run_producer(plugins_config, periodicity, hostname):
@@ -156,7 +162,7 @@ def run_consumer(consumers_config):
 
     while not must_stop.is_set():
         service_check = q.get()
-        if isinstance(service_check, threading.Event):
+        if isinstance(service_check, event_type):
             continue
         consumer.try_send(service_check, must_stop)
     logging.debug('Exited consumer thread')
