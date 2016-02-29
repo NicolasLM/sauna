@@ -49,14 +49,16 @@ def assemble_config_sample(path):
     sample = '---\nperiodicity: 120\nhostname: node-1.domain.tld\n'
 
     sample += '\nconsumers:\n'
-
+    consumers_sample = ''
     for c in consumers.get_all_consumers():
-        sample += textwrap.indent(textwrap.dedent(c.config_sample()), '  ')
+        consumers_sample += textwrap.dedent(c.config_sample())
+    sample += consumers_sample.replace('\n', '\n  ')
 
     sample += '\nplugins:\n'
-
+    plugins_sample = ''
     for p in plugins.get_all_plugins():
-        sample += textwrap.indent(textwrap.dedent(p.config_sample()), '  ')
+        plugins_sample += textwrap.dedent(p.config_sample())
+    sample += plugins_sample.replace('\n', '\n  ')
 
     file_path = os.path.join(path, 'sauna-sample.yml')
     with open(file_path, 'w') as f:
