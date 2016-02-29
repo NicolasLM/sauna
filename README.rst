@@ -10,10 +10,9 @@ to install and low maintenance.
 Installation
 ------------
 
-Sauna is not yet pushed to PyPI, you currently have to install it manually.
-Clone the repository and install it in a virtualenv with pip::
+Sauna is available on PyPI, you can install it with pip:
 
-   pip install .
+   pip install sauna
 
 Usage
 -----
