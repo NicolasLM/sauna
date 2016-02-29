@@ -1,0 +1,20 @@
+Source: sauna
+Standards-Version: 3.9.6
+Section: python
+Maintainer: Nicolas Le Manchet <nicolas@lemanchet.fr>
+Build-Depends: debhelper (>= 9), dh-python, dh-systemd,
+ python3-all, python3-setuptools
+Priority: extra
+Homepage: https://github.com/NicolasLM/sauna
+Vcs-Browser: https://github.com/NicolasLM/sauna
+Vcs-Git: https://github.com/NicolasLM/sauna.git
+X-Python3-Version: >= 3.2
+
+Package: sauna
+Pre-Depends: adduser (>= 3.40)
+Depends: python3 (>= 3.2), ${misc:Depends}, python3-pkg-resources,
+ python3-docopt, python3-yaml
+Architecture: all
+Description: A simple daemon that runs and reports health checks.
+ Sauna is a daemon written in Python that runs health checks and reports
+ them to any monitoring server.

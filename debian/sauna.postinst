@@ -1,0 +1,46 @@
+#!/bin/sh
+set -e
+
+create_user () {
+
+    adduser --system --quiet --group --no-create-home sauna || true
+
+}
+
+create_base_config_file () {
+
+    if [ ! -e /etc/sauna.yml ]; then
+        cat <<EOF >> /etc/sauna.yml
+---
+periodicity: 120
+
+consumers:
+  Stdout:
+
+plugins:
+  # Load average
+  Load:
+    checks:
+      - type: load1
+        warn: 2
+        crit: 4
+EOF
+        chown root:sauna /etc/sauna.yml
+        chmod 640 /etc/sauna.yml
+    fi
+
+}
+
+
+case "$1" in
+
+    configure)
+        create_user
+        create_base_config_file ;;
+
+esac
+
+
+#DEBHELPER#
+
+exit 0
