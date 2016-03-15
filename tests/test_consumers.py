@@ -73,3 +73,41 @@ class ConsumersTest(unittest.TestCase):
         time_mock.sleep.assert_called_with(1)
         self.assertEquals(time_mock.sleep.call_count,
                           stdout_consumer.retry_delay)
+
+
+class ConsumerNSCATest(unittest.TestCase):
+
+    def test_encrypt_xor(self):
+        from sauna.consumers.nsca import encrypt_xor
+        data = bytes.fromhex('0000')
+        iv = bytes.fromhex('0000')
+        key = bytes.fromhex('0000')
+        self.assertEquals(encrypt_xor(data, iv, key), bytes.fromhex('0000'))
+
+        data = bytes.fromhex('0000')
+        iv = bytes.fromhex('FF')
+        key = bytes.fromhex('00')
+        self.assertEquals(encrypt_xor(data, iv, key), bytes.fromhex('FFFF'))
+
+        data = bytes.fromhex('7DE8')
+        iv = bytes.fromhex('8ECA')
+        key = bytes.fromhex('E1D0')
+        self.assertEquals(encrypt_xor(data, iv, key), bytes.fromhex('12F2'))
+
+    def test_no_encryption(self):
+        from sauna.consumers.nsca import NSCAConsumer
+        nsca = NSCAConsumer({'encryption': 0})
+        self.assertEquals(
+            nsca._encrypt_service_payload(bytes.fromhex('EEEE'),
+                                          bytes.fromhex('5555')),
+            bytes.fromhex('EEEE')
+        )
+
+    def test_xor_encryption(self):
+        from sauna.consumers.nsca import NSCAConsumer
+        nsca = NSCAConsumer({'encryption': 1, 'key': 'plop'})
+        self.assertEquals(
+            nsca._encrypt_service_payload(bytes.fromhex('EEEE'),
+                                          bytes.fromhex('5555')),
+            bytes.fromhex('CBD7')
+        )

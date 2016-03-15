@@ -2,8 +2,16 @@ import socket
 import struct
 import binascii
 from copy import deepcopy
+import itertools
 
 from . import Consumer
+
+
+def encrypt_xor(data, iv, key):
+    for i in (iv, key):
+        i = itertools.cycle(i)
+        data = bytes(x ^ y for x, y in zip(data, i))
+    return data
 
 
 class NSCAConsumer(Consumer):
@@ -20,19 +28,26 @@ class NSCAConsumer(Consumer):
     )
     service_payload_size = struct.calcsize(service_payload_fmt)
 
+    encryption_functions = {
+        0: lambda x, y, z: x,
+        1: encrypt_xor
+    }
+
     def __init__(self, config):
         super().__init__(config)
         self.config = {
             'server': config.get('server', 'localhost'),
             'port': config.get('port', 5667),
-            'timeout': config.get('timeout', 10)
+            'timeout': config.get('timeout', 10),
+            'encryption': config.get('encryption', 0),
+            'key': config.get('key', '').encode('ascii'),
         }
 
     def _recv_init_payload(self, s):
         init_payload = bytes()
         while len(init_payload) < self.init_payload_size:
             buffer = s.recv(self.init_payload_size - len(init_payload))
-            if not buffer:
+            if buffer:
                 init_payload += buffer
         return self._decode_init_payload(init_payload)
 
@@ -70,23 +85,33 @@ class NSCAConsumer(Consumer):
             service_check.output = service_check.output[:truncate_output]
         return service_check
 
+    def _encrypt_service_payload(self, service_payload, iv):
+        try:
+            encryption_mode = self.config['encryption']
+            encryption_function = self.encryption_functions[encryption_mode]
+        except KeyError:
+            raise ValueError('Encryption mode not supported')
+        data = encryption_function(service_payload, iv, self.config['key'])
+        return data
+
     def _send(self, service_check):
         with socket.socket() as s:
             s.settimeout(self.config['timeout'])
             s.connect((self.config['server'], self.config['port']))
-            # iv, timestamp = self._recv_init_payload(s)
-            s.sendall(self._encode_service_payload(service_check))
-        import time
-        time.sleep(1)
+            iv, timestamp = self._recv_init_payload(s)
+            service_payload = self._encode_service_payload(service_check)
+            s.sendall(self._encrypt_service_payload(service_payload, iv))
 
     @staticmethod
     def config_sample():
         return '''
         # Send service check to a NSCA server
-        # Only encryption method 0 (aka no encryption) is implemented
+        # Only encryption methods 0 and 1 are supported
         # Max plugin output is 4096 bytes
         NSCA:
           server: receiver.shinken.tld
           port: 5667
           timeout: 10
+          encryption: 1
+          key: verylongkey
         '''
