@@ -1,3 +1,10 @@
+sauna (0.0.3-1) unstable; urgency=low
+
+  * New upstream release
+  * Allow to use NSCA encryption 1 (aka XOR)
+
+ -- Nicolas Le Manchet <nicolas@lemanchet.fr>  Wed, 16 Mar 2016 11:46:39 +0100
+
 sauna (0.0.2-1) unstable; urgency=low
 
   * First packaged.

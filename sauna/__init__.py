@@ -10,7 +10,7 @@ import signal
 
 from sauna import plugins, consumers
 
-__version__ = '0.0.2'
+__version__ = '0.0.3'
 
 ServiceCheck = namedtuple('ServiceCheck',
                           ['timestamp', 'hostname', 'name',
