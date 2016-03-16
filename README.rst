@@ -10,7 +10,13 @@ to install and low maintenance.
 Installation
 ------------
 
-Sauna is available on PyPI, you can install it with pip:
+A Debian package compatible with wheezy and jessie is available. Grab the
+`latest release <https://github.com/NicolasLM/sauna/releases>`_ on Github
+and install it:
+
+   dkpg -i sauna_<version>_all.deb || apt-get install -f
+
+Alternatively, Sauna is available on PyPI, you can install it with pip:
 
    pip install sauna
 
