@@ -16,6 +16,13 @@ ServiceCheck = namedtuple('ServiceCheck',
                           ['timestamp', 'hostname', 'name',
                            'status', 'output'])
 
+try:
+    # In Python 3.2 threading.Event is a factory function
+    # the real class lives in threading._Event
+    event_type = threading._Event
+except AttributeError:
+    event_type = threading.Event
+
 
 class DependencyError(Exception):
 
@@ -41,81 +48,96 @@ def read_config(config_file):
         with open(config_file) as f:
             return yaml.safe_load(f)
     except OSError as e:
-        print('Cannot read configuration file {}: {}'.format(config_file, e))
+        print('Cannot read configuration file {}: {}'
+              .format(config_file, e))
         exit(1)
 
 
-def assemble_config_sample(path):
-    sample = '---\nperiodicity: 120\nhostname: node-1.domain.tld\n'
+class Sauna:
 
-    sample += '\nconsumers:\n'
-    consumers_sample = ''
-    for c in consumers.get_all_consumers():
-        consumers_sample += textwrap.dedent(c.config_sample())
-    sample += consumers_sample.replace('\n', '\n  ')
+    def __init__(self, config=None):
+        if config is None:
+            config = {}
+        self.config = config
 
-    sample += '\nplugins:\n'
-    plugins_sample = ''
-    for p in plugins.get_all_plugins():
-        plugins_sample += textwrap.dedent(p.config_sample())
-    sample += plugins_sample.replace('\n', '\n  ')
+        self.must_stop = threading.Event()
+        self._consumers_queues = []
 
-    file_path = os.path.join(path, 'sauna-sample.yml')
-    with open(file_path, 'w') as f:
-        f.write(sample)
+    @classmethod
+    def assemble_config_sample(cls, path):
+        sample = '---\nperiodicity: 120\nhostname: node-1.domain.tld\n'
 
-    return file_path
+        sample += '\nconsumers:\n'
+        consumers_sample = ''
+        for c in consumers.get_all_consumers():
+            consumers_sample += textwrap.dedent(c.config_sample())
+        sample += consumers_sample.replace('\n', '\n  ')
 
+        sample += '\nplugins:\n'
+        plugins_sample = ''
+        for p in plugins.get_all_plugins():
+            plugins_sample += textwrap.dedent(p.config_sample())
+        sample += plugins_sample.replace('\n', '\n  ')
 
-def get_checks_name(config_file):
-    config = read_config(config_file)
-    plugins_config = config['plugins']
-    checks = get_all_checks(plugins_config)
-    return [check.name for check in checks]
+        file_path = os.path.join(path, 'sauna-sample.yml')
+        with open(file_path, 'w') as f:
+            f.write(sample)
 
+        return file_path
 
-def get_all_checks(plugins_config):
-    checks = []
-    deps_error = []
-    for plugin_name, plugin_data in plugins_config.items():
+    @property
+    def hostname(self):
+        return self.config.get('hostname', socket.getfqdn())
 
-        # Load plugin
-        try:
-            Plugin = plugins.get_plugin(plugin_name)
-        except ValueError as e:
-            print(str(e))
-            exit(1)
+    @property
+    def periodicity(self):
+        return self.config.get('periodicity', 120)
 
-        # Configure plugin
-        try:
-            plugin = Plugin(plugin_data.get('config', {}))
-        except DependencyError as e:
-            deps_error.append(str(e))
-            continue
+    def get_checks_name(self):
+        checks = self.get_all_checks()
+        return [check.name for check in checks]
 
-        # Launch plugin checks
-        for check in plugin_data['checks']:
-            check_func = getattr(plugin, check['type'])
+    def get_all_checks(self):
+        checks = []
+        deps_error = []
+        for plugin_name, plugin_data in self.config['plugins'].items():
 
-            if not check_func:
-                print('Unknown check {} on plugin {}'.format(check['type'],
-                                                             plugin_name))
+            # Load plugin
+            try:
+                Plugin = plugins.get_plugin(plugin_name)
+            except ValueError as e:
+                print(str(e))
                 exit(1)
 
-            check_name = (check.get('name') or '{}_{}'.format(
-                plugin_name, check['type']
-            ).lower())
+            # Configure plugin
+            try:
+                plugin = Plugin(plugin_data.get('config', {}))
+            except DependencyError as e:
+                deps_error.append(str(e))
+                continue
 
-            checks.append(plugins.Check(check_name, check_func, check))
-    if deps_error:
-        for error in deps_error:
-            print(error)
-        exit(1)
-    return checks
+            # Launch plugin checks
+            for check in plugin_data['checks']:
+                check_func = getattr(plugin, check['type'])
 
+                if not check_func:
+                    print('Unknown check {} on plugin {}'.format(check['type'],
+                                                                 plugin_name))
+                    exit(1)
 
-def launch_all_checks(plugins_config, hostname):
-    for check in get_all_checks(plugins_config):
+                check_name = (check.get('name') or '{}_{}'.format(
+                    plugin_name, check['type']
+                ).lower())
+
+                checks.append(plugins.Check(check_name, check_func, check))
+        if deps_error:
+            for error in deps_error:
+                print(error)
+            exit(1)
+        return checks
+
+    def launch_all_checks(self, hostname):
+        for check in self.get_all_checks():
 
             try:
                 status, output = check.run_check()
@@ -134,76 +156,72 @@ def launch_all_checks(plugins_config, hostname):
             )
             yield s
 
+    def run_producer(self):
+        while True:
+            for service_check in self.launch_all_checks(self.hostname):
+                logging.debug(
+                    'Pushing to main queue: {}'.format(service_check))
+                self.send_data_to_consumers(service_check)
+            if self.must_stop.wait(timeout=self.periodicity):
+                break
+        logging.debug('Exited producer thread')
 
-q = queue.Queue()
-must_stop = threading.Event()
-try:
-    # In Python 3.2 threading.Event is a factory function
-    # the real class lives in threading._Event
-    event_type = threading._Event
-except AttributeError:
-    event_type = threading.Event
+    def run_consumer(self, consumer_name, consumer_config, consumer_queue):
+        logging.debug(
+            'Running {} with {}'.format(consumer_name, consumer_config))
+        try:
+            consumer = consumers.get_consumer(consumer_name)(consumer_config)
+        except DependencyError as e:
+            print(str(e))
+            exit(1)
 
+        while not self.must_stop.is_set():
+            service_check = consumer_queue.get()
+            if isinstance(service_check, event_type):
+                continue
+            logging.debug(
+                '[{}] Got check {}'.format(consumer_name, service_check))
+            consumer.try_send(service_check, self.must_stop)
+        logging.debug('Exited consumer {} thread'.format(consumer_name))
 
-def run_producer(plugins_config, periodicity, hostname):
-    while True:
-        for service_check in launch_all_checks(plugins_config, hostname):
-            q.put(service_check)
-        if must_stop.wait(timeout=periodicity):
-            break
-    logging.debug('Exited producer thread')
+    def term_handler(self, *args):
+        """Notify producer and consumer that they should stop."""
+        if not self.must_stop.is_set():
+            self.must_stop.set()
+            self.send_data_to_consumers(self.must_stop)
+            logging.info('Exiting...')
 
+    def send_data_to_consumers(self, data):
+        for queue in self._consumers_queues:
+            queue.put(data)
 
-def run_consumer(consumers_config):
-    consumer_name, consumer_config = consumers_config.popitem()
-    try:
-        consumer = consumers.get_consumer(consumer_name)(consumer_config)
-    except DependencyError as e:
-        print(str(e))
-        exit(1)
+    def launch(self):
+        # Start producer and consumer threads
+        producer = threading.Thread(
+            name='producer', target=self.run_producer
+        )
+        producer.start()
 
-    while not must_stop.is_set():
-        service_check = q.get()
-        if isinstance(service_check, event_type):
-            continue
-        consumer.try_send(service_check, must_stop)
-    logging.debug('Exited consumer thread')
+        consumers = []
+        for consumer_name, consumer_config in self.config['consumers'].items():
+            consumer_queue = queue.Queue()
+            self._consumers_queues.append(consumer_queue)
 
+            consumer = threading.Thread(
+                name='consumer_{}'.format(consumer_name),
+                target=self.run_consumer,
+                args=(consumer_name, consumer_config, consumer_queue)
+            )
+            consumer.start()
+            consumers.append(consumer)
 
-def term_handler(*args):
-    """Notify producer and consumer that they should stop."""
-    if not must_stop.is_set():
-        must_stop.set()
-        q.put(must_stop)
-        logging.info('Exiting...')
+        signal.signal(signal.SIGTERM, self.term_handler)
+        signal.signal(signal.SIGINT, self.term_handler)
 
+        producer.join()
+        self.term_handler()
 
-def launch(config_file):
+        for consumer in consumers:
+            consumer.join()
 
-    # Fetch configuration settings
-    config = read_config(config_file)
-    plugins_config = config['plugins']
-    consumers_config = config['consumers']
-    periodicity = config.get('periodicity', 120)
-    hostname = config.get('hostname', socket.getfqdn())
-
-    # Start producer and consumer threads
-    producer = threading.Thread(
-        name='producer', target=run_producer,
-        args=(plugins_config, periodicity, hostname)
-    )
-    consumer = threading.Thread(
-        name='consumer', target=run_consumer,
-        args=(consumers_config,)
-    )
-    consumer.start()
-    producer.start()
-
-    signal.signal(signal.SIGTERM, term_handler)
-    signal.signal(signal.SIGINT, term_handler)
-
-    producer.join()
-    term_handler()
-    consumer.join()
-
-    logging.debug('Exited main thread')
+        logging.debug('Exited main thread')

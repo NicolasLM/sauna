@@ -10,28 +10,35 @@ class Consumer:
         self.stale_age = config.get('stale_age', 300)
         self.retry_delay = 10
 
+    def logging(self, lvl, message):
+        log = getattr(logging, lvl)
+        message = '[{}] {}'.format(self.__class__.__name__, message)
+        log(message)
+
     def _send(self, service_check):
         raise NotImplemented()
 
     def try_send(self, service_check, must_stop):
+
         while True:
             if must_stop.is_set():
                 return
             if service_check.timestamp + self.stale_age < int(time.time()):
-                logging.warning('Dropping check because it is too old')
+                self.logging('warning', 'Dropping check because it is too old')
                 return
             try:
                 self._send(service_check)
-                logging.info('Check sent')
+                self.logging('info', 'Check sent')
                 return
             except Exception as e:
-                logging.warning('Could not send check: {}'.format(e))
+                self.logging('warning', 'Could not send check: {}'.format(e))
                 if must_stop.is_set():
                     return
                 self._wait_before_retry(must_stop)
 
     def _wait_before_retry(self, must_stop):
-        logging.info('Waiting {}s before retry'.format(self.retry_delay))
+        self.logging('info',
+                     'Waiting {}s before retry'.format(self.retry_delay))
         for i in range(self.retry_delay):
             if must_stop.is_set():
                 return
