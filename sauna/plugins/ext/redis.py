@@ -1,7 +1,11 @@
-from . import Plugin, human_to_bytes, bytes_to_human
+from sauna.plugins import Plugin, human_to_bytes, bytes_to_human,\
+    PluginRegister
+
+my_plugin = PluginRegister('Redis')
 
 
-class RedisPlugin(Plugin):
+@my_plugin.plugin()
+class Redis(Plugin):
 
     def __init__(self, config):
         super().__init__(config)
@@ -14,6 +18,7 @@ class RedisPlugin(Plugin):
                                   'redis', 'python3-redis')
         self._redis_info = None
 
+    @my_plugin.check()
     def used_memory(self, check_config):
         status = self._value_to_status_less(
             self.redis_info['used_memory'], check_config, human_to_bytes
@@ -21,6 +26,7 @@ class RedisPlugin(Plugin):
         output = 'Used memory: {}'.format(self.redis_info['used_memory_human'])
         return status, output
 
+    @my_plugin.check()
     def used_memory_rss(self, check_config):
         status = self._value_to_status_less(
             self.redis_info['used_memory_rss'], check_config, human_to_bytes

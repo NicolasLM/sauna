@@ -4,7 +4,10 @@ import binascii
 from copy import deepcopy
 import itertools
 
-from . import QueuedConsumer
+from sauna.consumers.base import QueuedConsumer
+from sauna.consumers import ConsumerRegister
+
+my_consumer = ConsumerRegister('NSCA')
 
 
 def encrypt_xor(data, iv, key):
@@ -14,6 +17,7 @@ def encrypt_xor(data, iv, key):
     return data
 
 
+@my_consumer.consumer()
 class NSCAConsumer(QueuedConsumer):
 
     protocol_version = 3

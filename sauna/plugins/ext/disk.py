@@ -1,8 +1,13 @@
-from . import PsutilPlugin
+from sauna.plugins import PluginRegister
+from sauna.plugins.base import PsutilPlugin
+
+my_plugin = PluginRegister('Disk')
 
 
-class DiskPlugin(PsutilPlugin):
+@my_plugin.plugin()
+class Disk(PsutilPlugin):
 
+    @my_plugin.check()
     def used_percent(self, check_config):
         check_config = self._strip_percent_sign_from_check_config(check_config)
         for part in self.psutil.disk_partitions(all=False):

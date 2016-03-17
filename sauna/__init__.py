@@ -7,8 +7,15 @@ import socket
 import os
 import textwrap
 import signal
+import importlib
+import pkgutil
+
 
 from sauna import plugins, consumers
+from sauna.plugins.base import Check
+from sauna.consumers.base import QueuedConsumer
+from sauna.consumers import ConsumerRegister
+from sauna.plugins import PluginRegister
 
 __version__ = '0.0.3'
 
@@ -74,14 +81,20 @@ class Sauna:
 
         sample += '\nconsumers:\n'
         consumers_sample = ''
-        for c in consumers.get_all_consumers():
-            consumers_sample += textwrap.dedent(c.config_sample())
+        for _, consumer_info in ConsumerRegister.all_consumers.items():
+            if hasattr(consumer_info['consumer_cls'], 'config_sample'):
+                consumers_sample += textwrap.dedent(
+                    consumer_info['consumer_cls'].config_sample()
+                )
         sample += consumers_sample.replace('\n', '\n  ')
 
         sample += '\nplugins:\n'
         plugins_sample = ''
-        for p in plugins.get_all_plugins():
-            plugins_sample += textwrap.dedent(p.config_sample())
+        for _, plugin_info in PluginRegister.all_plugins.items():
+            if hasattr(plugin_info['plugin_cls'], 'config_sample'):
+                plugins_sample += textwrap.dedent(
+                    plugin_info['plugin_cls'].config_sample()
+                )
         sample += plugins_sample.replace('\n', '\n  ')
 
         file_path = os.path.join(path, 'sauna-sample.yml')
@@ -98,25 +111,41 @@ class Sauna:
     def periodicity(self):
         return self.config.get('periodicity', 120)
 
-    def get_checks_name(self):
-        checks = self.get_all_checks()
+    def get_active_checks_name(self):
+        checks = self.get_all_active_checks()
         return [check.name for check in checks]
 
-    def get_all_checks(self):
+    def get_all_available_consumers(self):
+        return_consumers = []
+        for plugin_name, _ in ConsumerRegister.all_consumers.items():
+            return_consumers.append(plugin_name)
+
+        return return_consumers
+
+    def get_all_available_checks(self):
+        checks = {}
+        for plugin_name, data in PluginRegister.all_plugins.items():
+            checks[plugin_name] = []
+            for check in data['checks']:
+                checks[plugin_name].append(check)
+        return checks
+
+    def get_all_active_checks(self):
         checks = []
         deps_error = []
         for plugin_name, plugin_data in self.config['plugins'].items():
 
             # Load plugin
-            try:
-                Plugin = plugins.get_plugin(plugin_name)
-            except ValueError as e:
-                print(str(e))
+            plugin_info = PluginRegister.get_plugin(plugin_name)
+            if not plugin_info:
+                print('Plugin {} does not exist'.format(plugin_name))
                 exit(1)
 
             # Configure plugin
             try:
-                plugin = Plugin(plugin_data.get('config', {}))
+                plugin = plugin_info['plugin_cls'](
+                    plugin_data.get('config', {})
+                )
             except DependencyError as e:
                 deps_error.append(str(e))
                 continue
@@ -134,7 +163,7 @@ class Sauna:
                     plugin_name, check['type']
                 ).lower())
 
-                checks.append(plugins.Check(check_name, check_func, check))
+                checks.append(Check(check_name, check_func, check))
         if deps_error:
             for error in deps_error:
                 print(error)
@@ -142,7 +171,7 @@ class Sauna:
         return checks
 
     def launch_all_checks(self, hostname):
-        for check in self.get_all_checks():
+        for check in self.get_all_active_checks():
 
             try:
                 status, output = check.run_check()
@@ -193,15 +222,19 @@ class Sauna:
 
         consumers_threads = []
         for consumer_name, consumer_config in self.config['consumers'].items():
+
+            consumer_info = ConsumerRegister.get_consumer(consumer_name)
+            if not consumer_info:
+                print('Plugin {} does not exist'.format(consumer_name))
+                exit(1)
+
             try:
-                consumer = consumers.get_consumer(consumer_name)(
-                    consumer_config
-                )
+                consumer = consumer_info['consumer_cls'](consumer_config)
             except DependencyError as e:
                 print(str(e))
                 exit(1)
 
-            if isinstance(consumer, consumers.QueuedConsumer):
+            if isinstance(consumer, QueuedConsumer):
                 consumer_queue = queue.Queue()
                 self._consumers_queues.append(consumer_queue)
             else:
@@ -229,3 +262,27 @@ class Sauna:
             consumer_thread.join()
 
         logging.debug('Exited main thread')
+
+
+def get_all_subclass(main_class):
+    # Check all subclass with recursion
+    subclasses = []
+    for subclass in main_class.__subclasses__():
+        subclasses.append(subclass)
+        subclasses += get_all_subclass(subclass)
+    return tuple(subclasses)
+
+
+def import_submodules(package):
+    # Please don't use logger in this method,
+    # it will disable all logger parameters
+    if isinstance(package, str):
+        package = importlib.import_module(package)
+
+    for loader, name, is_pkg in pkgutil.walk_packages(package.__path__):
+        if not name.startswith("_") and is_pkg is False:
+            full_name = package.__name__ + '.' + name
+            importlib.import_module(full_name)
+
+import_submodules(__name__+'.plugins.ext')
+import_submodules(__name__+'.consumers.ext')

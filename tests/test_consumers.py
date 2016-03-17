@@ -3,9 +3,10 @@ import threading
 import time
 
 from .context import sauna, mock
+from sauna.consumers.base import QueuedConsumer
 
 
-class DumbConsumer(sauna.consumers.QueuedConsumer):
+class DumbConsumer(QueuedConsumer):
 
     times_called = 0
     fail_next = False
@@ -25,17 +26,21 @@ class DumbConsumer(sauna.consumers.QueuedConsumer):
 class ConsumersTest(unittest.TestCase):
 
     def test_get_all_consumers(self):
-        consumers = sauna.consumers.get_all_consumers()
-        self.assertIsInstance(consumers, tuple)
+        consumers = sauna.consumers.ConsumerRegister.all_consumers
+        self.assertIsInstance(consumers, dict)
         self.assertGreater(len(consumers), 1)
-        for consumer in consumers:
-            self.assert_(issubclass(consumer, sauna.consumers.Consumer))
+        for consumer_name, consumer_info in consumers.items():
+            self.assertIn('consumer_cls', consumer_info)
+            self.assert_(issubclass(consumer_info['consumer_cls'],
+                                    sauna.consumers.base.Consumer))
 
     def test_get_consumer(self):
-        stdout_consumer = sauna.consumers.get_consumer('Stdout')
-        self.assert_(issubclass(stdout_consumer, sauna.consumers.Consumer))
-        with self.assertRaises(ValueError):
-            sauna.consumers.get_consumer('Unknown')
+        stdout_consumer = sauna.consumers.ConsumerRegister\
+            .get_consumer('Stdout')
+        self.assert_(issubclass(stdout_consumer['consumer_cls'],
+                                sauna.consumers.base.Consumer))
+        must_be_none = sauna.consumers.ConsumerRegister.get_consumer('Unknown')
+        self.assertIsNone(must_be_none)
 
     def test_consumer_send_success(self):
         must_stop = threading.Event()
@@ -43,7 +48,7 @@ class ConsumersTest(unittest.TestCase):
             timestamp=int(time.time()),
             hostname='node-1.domain.tld',
             name='dumb_check',
-            status=sauna.plugins.STATUS_OK,
+            status=sauna.plugins.Plugin.STATUS_OK,
             output='Check okay'
         )
         dumb_consumer = DumbConsumer({})
@@ -56,7 +61,7 @@ class ConsumersTest(unittest.TestCase):
             timestamp=int(time.time()),
             hostname='node-1.domain.tld',
             name='dumb_check',
-            status=sauna.plugins.STATUS_OK,
+            status=sauna.plugins.Plugin.STATUS_OK,
             output='Check okay'
         )
         dumb_consumer = DumbConsumer({})
@@ -65,10 +70,11 @@ class ConsumersTest(unittest.TestCase):
         self.assertIs(s, dumb_consumer.last_service_check)
         self.assertEquals(2, dumb_consumer.times_called)
 
-    @mock.patch('sauna.consumers.time')
+    @mock.patch('sauna.consumers.base.time')
     def test_wait_before_retry(self, time_mock):
         must_stop = threading.Event()
-        stdout_consumer = sauna.consumers.get_consumer('Stdout')({})
+        stdout_consumer = sauna.consumers.ConsumerRegister\
+            .get_consumer('Stdout')['consumer_cls']({})
         stdout_consumer._wait_before_retry(must_stop)
         time_mock.sleep.assert_called_with(1)
         self.assertEquals(time_mock.sleep.call_count,
@@ -78,7 +84,7 @@ class ConsumersTest(unittest.TestCase):
 class ConsumerNSCATest(unittest.TestCase):
 
     def test_encrypt_xor(self):
-        from sauna.consumers.nsca import encrypt_xor
+        from sauna.consumers.ext.nsca import encrypt_xor
         data = bytes.fromhex('0000')
         iv = bytes.fromhex('0000')
         key = bytes.fromhex('0000')
@@ -95,7 +101,7 @@ class ConsumerNSCATest(unittest.TestCase):
         self.assertEquals(encrypt_xor(data, iv, key), bytes.fromhex('12F2'))
 
     def test_no_encryption(self):
-        from sauna.consumers.nsca import NSCAConsumer
+        from sauna.consumers.ext.nsca import NSCAConsumer
         nsca = NSCAConsumer({'encryption': 0})
         self.assertEquals(
             nsca._encrypt_service_payload(bytes.fromhex('EEEE'),
@@ -104,7 +110,7 @@ class ConsumerNSCATest(unittest.TestCase):
         )
 
     def test_xor_encryption(self):
-        from sauna.consumers.nsca import NSCAConsumer
+        from sauna.consumers.ext.nsca import NSCAConsumer
         nsca = NSCAConsumer({'encryption': 1, 'key': 'plop'})
         self.assertEquals(
             nsca._encrypt_service_payload(bytes.fromhex('EEEE'),

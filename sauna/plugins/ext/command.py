@@ -1,11 +1,15 @@
 import subprocess
 import shlex
 
-from . import Plugin, STATUS_OK, STATUS_WARN, STATUS_CRIT, STATUS_UNKNOWN
+from sauna.plugins import Plugin, PluginRegister
+
+myplugin = PluginRegister('Command')
 
 
-class CommandPlugin(Plugin):
+@myplugin.plugin()
+class Command(Plugin):
 
+    @myplugin.check()
     def command(self, check_config):
         p = subprocess.Popen(
             shlex.split(check_config['command']),
@@ -18,9 +22,9 @@ class CommandPlugin(Plugin):
 
     @staticmethod
     def _return_code_to_status(cls, return_code):
-        if return_code in (STATUS_OK, STATUS_WARN, STATUS_CRIT):
+        if return_code in (cls.STATUS_OK, cls.STATUS_WARN, cls.STATUS_CRIT):
             return return_code
-        return STATUS_UNKNOWN
+        return cls.STATUS_UNKNOWN
 
     @staticmethod
     def config_sample():
