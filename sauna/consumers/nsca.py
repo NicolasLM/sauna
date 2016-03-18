@@ -4,7 +4,7 @@ import binascii
 from copy import deepcopy
 import itertools
 
-from . import Consumer
+from . import QueuedConsumer
 
 
 def encrypt_xor(data, iv, key):
@@ -14,7 +14,7 @@ def encrypt_xor(data, iv, key):
     return data
 
 
-class NSCAConsumer(Consumer):
+class NSCAConsumer(QueuedConsumer):
 
     protocol_version = 3
     max_hostname_size = 64

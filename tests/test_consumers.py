@@ -5,7 +5,7 @@ import time
 from .context import sauna, mock
 
 
-class DumbConsumer(sauna.consumers.Consumer):
+class DumbConsumer(sauna.consumers.QueuedConsumer):
 
     times_called = 0
     fail_next = False

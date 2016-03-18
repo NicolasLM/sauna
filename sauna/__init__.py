@@ -16,6 +16,11 @@ ServiceCheck = namedtuple('ServiceCheck',
                           ['timestamp', 'hostname', 'name',
                            'status', 'output'])
 
+# Global dict containing the last status of each check
+# Needs to hold a lock to access it
+check_results = {}
+check_results_lock = threading.Lock()
+
 try:
     # In Python 3.2 threading.Event is a factory function
     # the real class lives in threading._Event
@@ -162,27 +167,11 @@ class Sauna:
                 logging.debug(
                     'Pushing to main queue: {}'.format(service_check))
                 self.send_data_to_consumers(service_check)
+                with check_results_lock:
+                    check_results[service_check.name] = service_check
             if self.must_stop.wait(timeout=self.periodicity):
                 break
         logging.debug('Exited producer thread')
-
-    def run_consumer(self, consumer_name, consumer_config, consumer_queue):
-        logging.debug(
-            'Running {} with {}'.format(consumer_name, consumer_config))
-        try:
-            consumer = consumers.get_consumer(consumer_name)(consumer_config)
-        except DependencyError as e:
-            print(str(e))
-            exit(1)
-
-        while not self.must_stop.is_set():
-            service_check = consumer_queue.get()
-            if isinstance(service_check, event_type):
-                continue
-            logging.debug(
-                '[{}] Got check {}'.format(consumer_name, service_check))
-            consumer.try_send(service_check, self.must_stop)
-        logging.debug('Exited consumer {} thread'.format(consumer_name))
 
     def term_handler(self, *args):
         """Notify producer and consumer that they should stop."""
@@ -202,18 +191,33 @@ class Sauna:
         )
         producer.start()
 
-        consumers = []
+        consumers_threads = []
         for consumer_name, consumer_config in self.config['consumers'].items():
-            consumer_queue = queue.Queue()
-            self._consumers_queues.append(consumer_queue)
+            try:
+                consumer = consumers.get_consumer(consumer_name)(
+                    consumer_config
+                )
+            except DependencyError as e:
+                print(str(e))
+                exit(1)
 
-            consumer = threading.Thread(
+            if isinstance(consumer, consumers.QueuedConsumer):
+                consumer_queue = queue.Queue()
+                self._consumers_queues.append(consumer_queue)
+            else:
+                consumer_queue = None
+
+            consumer_thread = threading.Thread(
                 name='consumer_{}'.format(consumer_name),
-                target=self.run_consumer,
-                args=(consumer_name, consumer_config, consumer_queue)
+                target=consumer.run,
+                args=(self.must_stop, consumer_queue)
             )
-            consumer.start()
-            consumers.append(consumer)
+
+            consumer_thread.start()
+            consumers_threads.append(consumer_thread)
+            logging.debug(
+                'Running {} with {}'.format(consumer_name, consumer_config)
+            )
 
         signal.signal(signal.SIGTERM, self.term_handler)
         signal.signal(signal.SIGINT, self.term_handler)
@@ -221,7 +225,7 @@ class Sauna:
         producer.join()
         self.term_handler()
 
-        for consumer in consumers:
-            consumer.join()
+        for consumer_thread in consumers_threads:
+            consumer_thread.join()
 
         logging.debug('Exited main thread')

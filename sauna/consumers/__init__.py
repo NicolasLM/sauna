@@ -15,7 +15,19 @@ class Consumer:
         message = '[{}] {}'.format(self.__class__.__name__, message)
         log(message)
 
+    def run(self, must_stop, queue):
+        """Method to override in consumers."""
+        raise NotImplemented()
+
+
+class QueuedConsumer(Consumer):
+    """Consumer that processes checks synchronously.
+
+    QueuedConsumers wait for checks to appear on a queue. They process each
+    check in order until the queue is empty.
+    """
     def _send(self, service_check):
+        """Method to override in consumers."""
         raise NotImplemented()
 
     def try_send(self, service_check, must_stop):
@@ -44,6 +56,28 @@ class Consumer:
                 return
             time.sleep(1)
 
+    def run(self, must_stop, queue):
+        from sauna import event_type
+        while not must_stop.is_set():
+            service_check = queue.get()
+            if isinstance(service_check, event_type):
+                continue
+            self.logging(
+                'debug',
+                'Got check {}'.format(service_check)
+            )
+            self.try_send(service_check, must_stop)
+        self.logging('debug', 'Exited consumer thread')
+
+
+class AsyncConsumer(Consumer):
+    """Consumer that processes checks asynchronously.
+
+    It is up to the consumer to read the checks when it needs to. No
+    queueing is made.
+    """
+    pass
+
 
 def get_consumer(consumer_name):
     if consumer_name == 'NSCA':
@@ -55,6 +89,9 @@ def get_consumer(consumer_name):
     if consumer_name == 'Stdout':
         from .stdout import StdoutConsumer
         return StdoutConsumer
+    if consumer_name == 'TCPServer':
+        from .tcp_server import TCPServerConsumer
+        return TCPServerConsumer
     raise ValueError('Unknown consumer {}'.format(consumer_name))
 
 
@@ -62,4 +99,5 @@ def get_all_consumers():
     from .nsca import NSCAConsumer
     from .http import HTTPConsumer
     from .stdout import StdoutConsumer
-    return NSCAConsumer, HTTPConsumer, StdoutConsumer
+    from .tcp_server import TCPServerConsumer
+    return NSCAConsumer, HTTPConsumer, StdoutConsumer, TCPServerConsumer
