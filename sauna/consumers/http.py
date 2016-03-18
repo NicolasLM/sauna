@@ -1,7 +1,7 @@
-from . import Consumer
+from . import QueuedConsumer
 
 
-class HTTPConsumer(Consumer):
+class HTTPConsumer(QueuedConsumer):
 
     def __init__(self, config):
         super().__init__(config)

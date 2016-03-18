@@ -1,7 +1,7 @@
-from . import Consumer
+from . import QueuedConsumer
 
 
-class StdoutConsumer(Consumer):
+class StdoutConsumer(QueuedConsumer):
 
     def _send(self, service_check):
         print(service_check)
