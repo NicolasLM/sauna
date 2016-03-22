@@ -62,9 +62,9 @@ class PluginsTest(unittest.TestCase):
     def test_value_to_status(self):
         less = sauna.plugins.Plugin._value_to_status_less
         more = sauna.plugins.Plugin._value_to_status_more
-        status_ok = sauna.plugins.STATUS_OK
-        status_warn = sauna.plugins.STATUS_WARN
-        status_crit = sauna.plugins.STATUS_CRIT
+        status_ok = sauna.plugins.Plugin.STATUS_OK
+        status_warn = sauna.plugins.Plugin.STATUS_WARN
+        status_crit = sauna.plugins.Plugin.STATUS_CRIT
 
         # Test less, imagine this check is about used RAM in percent
         check_config = {
@@ -85,14 +85,20 @@ class PluginsTest(unittest.TestCase):
         self.assertEquals(status_crit, more(2, check_config))
 
     def test_get_all_plugins(self):
-        plugins = sauna.plugins.get_all_plugins()
-        self.assertIsInstance(plugins, tuple)
+        plugins = sauna.plugins.PluginRegister.all_plugins
+        self.assertIsInstance(plugins, dict)
         self.assertGreater(len(plugins), 1)
-        for plugin in plugins:
-            self.assert_(issubclass(plugin, sauna.plugins.Plugin))
+        for plugin_name, plugin_info in plugins.items():
+            self.assertIn('plugin_cls', plugin_info)
+            self.assertIn('checks', plugin_info)
+            self.assert_(issubclass(plugin_info['plugin_cls'],
+                                    sauna.plugins.Plugin))
+            self.assertIsInstance(plugin_info['checks'], dict)
 
     def test_get_plugin(self):
-        load_plugin = sauna.plugins.get_plugin('Load')
-        self.assert_(issubclass(load_plugin, sauna.plugins.Plugin))
-        with self.assertRaises(ValueError):
-            sauna.plugins.get_plugin('Unknown')
+        load_plugin = sauna.plugins.PluginRegister.get_plugin('Load')
+        self.assert_(issubclass(load_plugin['plugin_cls'],
+                                sauna.plugins.Plugin))
+
+        must_be_none = sauna.plugins.PluginRegister.get_plugin('Unknown')
+        self.assertIsNone(must_be_none)

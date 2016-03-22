@@ -1,8 +1,13 @@
-from . import PsutilPlugin, STATUS_CRIT, STATUS_OK
+from sauna.plugins import PluginRegister
+from sauna.plugins.base import PsutilPlugin
+
+my_plugin = PluginRegister('Processes')
 
 
-class ProcessesPlugin(PsutilPlugin):
+@my_plugin.plugin()
+class Processes(PsutilPlugin):
 
+    @my_plugin.check()
     def count(self, check_config):
         num_pids = len(self.psutil.pids())
         return (
@@ -10,6 +15,7 @@ class ProcessesPlugin(PsutilPlugin):
             '{} processes'.format(num_pids)
         )
 
+    @my_plugin.check()
     def running(self, check_config):
         process_exec = check_config['exec']
         required_args = check_config.get('args', '').split()
@@ -21,14 +27,14 @@ class ProcessesPlugin(PsutilPlugin):
                 if self._required_args_are_in_cmdline(required_args,
                                                       process.cmdline()):
                     return (
-                        STATUS_OK,
+                        self.STATUS_OK,
                         'Process {} is running'.format(process_exec)
                     )
             except (self.psutil.NoSuchProcess, self.psutil.AccessDenied):
                 # Zombies and processes that stopped throw NoSuchProcess
                 pass
         return (
-            STATUS_CRIT,
+            self.STATUS_CRIT,
             'Process {} is not running'.format(process_exec)
         )
 

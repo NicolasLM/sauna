@@ -1,6 +1,10 @@
-from . import QueuedConsumer
+from sauna.consumers.base import QueuedConsumer
+from sauna.consumers import ConsumerRegister
+
+my_consumer = ConsumerRegister('HTTP')
 
 
+@my_consumer.consumer()
 class HTTPConsumer(QueuedConsumer):
 
     def __init__(self, config):

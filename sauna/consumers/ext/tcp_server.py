@@ -3,10 +3,14 @@ import select
 from collections import defaultdict
 from functools import reduce
 
-from . import AsyncConsumer
-from .. import check_results_lock, check_results
+from sauna.consumers.base import AsyncConsumer
+from sauna import check_results_lock, check_results
+from sauna.consumers import ConsumerRegister
+
+my_consumer = ConsumerRegister('TCPServer')
 
 
+@my_consumer.consumer()
 class TCPServerConsumer(AsyncConsumer):
 
     service_checks = {}
@@ -22,10 +26,10 @@ class TCPServerConsumer(AsyncConsumer):
         self.write_buffers = defaultdict(bytes)
 
     def _get_current_status(self):
-        from ..plugins import STATUS_OK, STATUS_WARN, STATUS_CRIT
+        from sauna.plugins.base import Plugin
 
         def reduce_status(accumulated, update_value):
-            if update_value.status > STATUS_CRIT:
+            if update_value.status > Plugin.STATUS_CRIT:
                 return accumulated
             return accumulated if accumulated > update_value.status else \
                 update_value.status
@@ -33,11 +37,11 @@ class TCPServerConsumer(AsyncConsumer):
         with check_results_lock:
             res = reduce(reduce_status, check_results.values(), 0)
 
-        if res == STATUS_OK:
+        if res == Plugin.STATUS_OK:
             status = b'OK\n'
-        elif res == STATUS_WARN:
+        elif res == Plugin.STATUS_WARN:
             status = b'WARNING\n'
-        elif res == STATUS_CRIT:
+        elif res == Plugin.STATUS_CRIT:
             status = b'CRITICAL\n'
         else:
             status = b'UNKNOWN\n'

@@ -1,6 +1,10 @@
-from . import QueuedConsumer
+from sauna.consumers.base import QueuedConsumer
+from sauna.consumers import ConsumerRegister
+
+my_consumer = ConsumerRegister('Stdout')
 
 
+@my_consumer.consumer()
 class StdoutConsumer(QueuedConsumer):
 
     def _send(self, service_check):

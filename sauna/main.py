@@ -4,7 +4,9 @@
 Usage:
   sauna [--level=<lvl>] [--config=FILE]
   sauna sample
-  sauna list-checks [--config=FILE]
+  sauna list-active-checks [--config=FILE]
+  sauna list-available-checks [--config=FILE]
+  sauna list-available-consumers [--config=FILE]
   sauna (-h | --help)
   sauna --version
 
@@ -39,9 +41,16 @@ def main():
     else:
         config = sauna.read_config(conf_file)
         sauna_instance = sauna.Sauna(config)
-        if args.get('list-checks'):
-            for name in sauna_instance.get_checks_name():
+        if args.get('list-active-checks'):
+            for name in sauna_instance.get_active_checks_name():
                 print('{}'.format(name))
+        elif args.get('list-available-checks'):
+            for plugin, checks in\
+                    sauna_instance.get_all_available_checks().items():
+                print('{}: {}'.format(plugin, ', '.join(checks)))
+        elif args.get('list-available-consumers'):
+            for consumer in sauna_instance.get_all_available_consumers():
+                print('{}'.format(consumer))
         else:
             sauna_instance.launch()
 

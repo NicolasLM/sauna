@@ -1,13 +1,18 @@
-from . import PsutilPlugin, human_to_bytes, bytes_to_human
+from sauna.plugins.base import PsutilPlugin
+from sauna.plugins import human_to_bytes, bytes_to_human, PluginRegister
+
+my_plugin = PluginRegister('Memory')
 
 
-class MemoryPlugin(PsutilPlugin):
+@my_plugin.plugin()
+class Memory(PsutilPlugin):
 
     def __init__(self, config):
         super().__init__(config)
         self._virtual_memory = None
         self._swap_memory = None
 
+    @my_plugin.check()
     def available(self, check_config):
         available = self.virtual_memory.available
         return (
@@ -16,6 +21,7 @@ class MemoryPlugin(PsutilPlugin):
             'Memory available: {}'.format(bytes_to_human(available))
         )
 
+    @my_plugin.check()
     def used_percent(self, check_config):
         used_percent = self.virtual_memory.percent
         check_config = self._strip_percent_sign_from_check_config(check_config)
@@ -24,6 +30,7 @@ class MemoryPlugin(PsutilPlugin):
             'Memory used: {}%'.format(used_percent)
         )
 
+    @my_plugin.check()
     def swap_used_percent(self, check_config):
         swap_used_percent = self.swap_memory.percent
         check_config = self._strip_percent_sign_from_check_config(check_config)
