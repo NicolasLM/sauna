@@ -1,6 +1,6 @@
 import unittest
 
-from .context import sauna
+from .context import sauna, mock
 
 
 class PluginsTest(unittest.TestCase):
@@ -102,3 +102,78 @@ class PluginsTest(unittest.TestCase):
 
         must_be_none = sauna.plugins.PluginRegister.get_plugin('Unknown')
         self.assertIsNone(must_be_none)
+
+
+class PuppetAgentTest(unittest.TestCase):
+
+    @mock.patch('sauna.plugins.ext.puppet_agent.time')
+    def test_last_run_delta(self, mock_time):
+        mock_time.time.return_value = 1460836285.4
+        puppet_agent = sauna.plugins.ext.puppet_agent.PuppetAgent({})
+        puppet_agent._last_run_summary = {
+            'time': {
+                'last_run': 1460836283
+            }
+        }
+        self.assertTupleEqual(
+            puppet_agent.last_run_delta({'warn': 10, 'crit': 20}),
+            (sauna.plugins.Plugin.STATUS_OK, 'Puppet last ran 0:00:02 ago')
+        )
+
+        mock_time.time.return_value = 1460836295.4
+        self.assertTupleEqual(
+            puppet_agent.last_run_delta({'warn': 10, 'crit': 20}),
+            (sauna.plugins.Plugin.STATUS_WARN, 'Puppet last ran 0:00:12 ago')
+        )
+
+    def test_failures(self):
+        puppet_agent = sauna.plugins.ext.puppet_agent.PuppetAgent({})
+        puppet_agent._last_run_summary = {
+            'events': {
+                'failure': 0
+            }
+        }
+        self.assertTupleEqual(
+            puppet_agent.failures({'warn': 1, 'crit': 2}),
+            (sauna.plugins.Plugin.STATUS_OK, 'Puppet ran without trouble')
+        )
+
+        puppet_agent._last_run_summary['events']['failure'] = 1
+        self.assertTupleEqual(
+            puppet_agent.failures({'warn': 1, 'crit': 1}),
+            (sauna.plugins.Plugin.STATUS_CRIT,
+             'Puppet last run had 1 failure(s)')
+        )
+
+    @mock.patch('builtins.open')
+    def test_get_last_run_summary(self, mock_open):
+        class ContextManager:
+            def __enter__(self):
+                return '''
+---
+  time:
+    last_run: 1460836283
+  events:
+    failure: 0
+    success: 1
+    total: 1
+'''
+
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        mock_open.return_value = ContextManager()
+        expected = {
+            'time': {
+                'last_run': 1460836283
+            },
+            'events': {
+                'failure': 0,
+                'success': 1,
+                'total': 1,
+            }
+        }
+        puppet_agent = sauna.plugins.ext.puppet_agent.PuppetAgent({})
+        self.assertEquals(puppet_agent._last_run_summary, None)
+        self.assertDictEqual(puppet_agent.last_run_summary, expected)
+        self.assertDictEqual(puppet_agent._last_run_summary, expected)
