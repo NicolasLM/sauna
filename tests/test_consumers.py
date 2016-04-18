@@ -117,3 +117,39 @@ class ConsumerNSCATest(unittest.TestCase):
                                           bytes.fromhex('5555')),
             bytes.fromhex('CBD7')
         )
+
+    @mock.patch('sauna.consumers.ext.nsca.socket')
+    def test_get_receivers_addresses(self, socket_mock):
+        from sauna.consumers.ext.nsca import NSCAConsumer
+        socket_mock.getaddrinfo.return_value = [
+            (None, None, None, None, ('7.7.7.7', 5667)),
+            (None, None, None, None, ('8.8.8.8', 5667)),
+            (None, None, None, None, ('9.9.9.9', 5667))
+        ]
+        nsca = NSCAConsumer({})
+        self.assertListEqual(nsca._get_receivers_addresses(),
+                             ['7.7.7.7', '8.8.8.8', '9.9.9.9'])
+
+        # Test with a already known good receiver
+        nsca._last_good_receiver_address = '9.9.9.9'
+        self.assertListEqual(nsca._get_receivers_addresses(),
+                             ['9.9.9.9', '7.7.7.7', '8.8.8.8'])
+
+    def test_send(self):
+        from sauna.consumers.ext.nsca import NSCAConsumer
+        nsca = NSCAConsumer({})
+        nsca._get_receivers_addresses = lambda: ['7.7.7.7', '8.8.8.8']
+        nsca._send_to_receiver = lambda x, y: None
+
+        self.assertEqual(nsca._last_good_receiver_address, None)
+        nsca._send(None)
+        self.assertEqual(nsca._last_good_receiver_address, '7.7.7.7')
+
+        def raise_socket_timeout(*args, **kwargs):
+            import socket
+            raise socket.timeout()
+
+        nsca._send_to_receiver = raise_socket_timeout
+        with self.assertRaises(IOError):
+            nsca._send(None)
+        self.assertEqual(nsca._last_good_receiver_address, '7.7.7.7')

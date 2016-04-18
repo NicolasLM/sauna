@@ -46,6 +46,7 @@ class NSCAConsumer(QueuedConsumer):
             'encryption': config.get('encryption', 0),
             'key': config.get('key', '').encode('ascii'),
         }
+        self._last_good_receiver_address = None
 
     def _recv_init_payload(self, s):
         init_payload = bytes()
@@ -98,13 +99,43 @@ class NSCAConsumer(QueuedConsumer):
         data = encryption_function(service_payload, iv, self.config['key'])
         return data
 
-    def _send(self, service_check):
+    def _get_receivers_addresses(self):
+        """Retrieve all the addresses associated with a hostname.
+
+        It will return in priority the address of the last known receiver which
+        accepted the previous check.
+        """
+        receivers = socket.getaddrinfo(
+            self.config['server'], self.config['port'],
+            proto=socket.IPPROTO_TCP
+        )
+        # Only keep the actual address
+        addresses = [r[4][0] for r in receivers]
+        try:
+            addresses.remove(self._last_good_receiver_address)
+            addresses = [self._last_good_receiver_address] + addresses
+        except ValueError:
+            pass
+        return addresses
+
+    def _send_to_receiver(self, service_check, receiver_address):
         with socket.socket() as s:
             s.settimeout(self.config['timeout'])
-            s.connect((self.config['server'], self.config['port']))
+            s.connect((receiver_address, self.config['port']))
             iv, timestamp = self._recv_init_payload(s)
             service_payload = self._encode_service_payload(service_check)
             s.sendall(self._encrypt_service_payload(service_payload, iv))
+
+    def _send(self, service_check):
+        for receiver_address in self._get_receivers_addresses():
+            try:
+                self._send_to_receiver(service_check, receiver_address)
+                self._last_good_receiver_address = receiver_address
+                return
+            except OSError as e:
+                self.logging('info', 'Could not send check to receiver {}: '
+                             '{}'.format(receiver_address, e))
+        raise IOError('No receiver accepted the check')
 
     @staticmethod
     def config_sample():
