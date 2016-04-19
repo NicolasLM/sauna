@@ -52,6 +52,7 @@ for the plugins that make sense for your setup. Available plugins are:
 * Redis
 * External command
 * Puppet agent
+* Postfix
 
 Consumers
 ~~~~~~~~~
@@ -82,7 +83,7 @@ virtualenv::
 
 The code base follows pep8, test the code for compliance with::
 
-   pep8 sauna test
+   pep8 sauna tests
 
 Run the test suite::
 
