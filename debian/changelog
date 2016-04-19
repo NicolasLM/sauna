@@ -1,3 +1,14 @@
+sauna (0.0.4-1) unstable; urgency=low
+
+  * Allow to run multiple consumers in parallel
+  * Plugins and consumers are auto-discovered using decorators
+  * Improve NSCA consumer reliability in a HA setup
+  * New consumer TCP server
+  * New plugin Puppet agent
+  * New plugin Postfix
+
+ -- Nicolas Le Manchet <nicolas@lemanchet.fr>  Tue, 19 Apr 2016 17:00:33 +0200
+
 sauna (0.0.3-1) unstable; urgency=low
 
   * New upstream release
