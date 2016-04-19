@@ -177,3 +177,47 @@ class PuppetAgentTest(unittest.TestCase):
         self.assertEquals(puppet_agent._last_run_summary, None)
         self.assertDictEqual(puppet_agent.last_run_summary, expected)
         self.assertDictEqual(puppet_agent._last_run_summary, expected)
+
+
+class PostfixTest(unittest.TestCase):
+
+    def test_get_queue_size(self):
+        postfix = sauna.plugins.ext.postfix.Postfix({})
+
+        postfix._mailq_output = 'Mail queue is empty\n'
+        self.assertEqual(postfix._get_queue_size(), 0)
+
+        postfix._mailq_output = (
+            'postqueue: fatal: Queue report unavailable '
+            '- mail system is down\n'
+        )
+        with self.assertRaises(Exception):
+            postfix._get_queue_size()
+
+        postfix._mailq_output = '''
+        -Queue ID- --Size-- ----Arrival Time---- -Sender/Recipient-------
+89B3CC02*       436 Tue Apr 19 09:21:31  user@host
+                                         user2@host
+
+-- 0 Kbytes in 1 Request.
+'''
+        self.assertEqual(postfix._get_queue_size(), 1)
+
+        postfix._mailq_output = '-- 105 Kbytes in 25 Requests.\n'
+        self.assertEqual(postfix._get_queue_size(), 25)
+
+    def test_queue_size(self):
+        postfix = sauna.plugins.ext.postfix.Postfix({})
+        postfix._get_queue_size = lambda: 5
+        self.assertTupleEqual(
+            postfix.queue_size({'warn': 10, 'crit': 20}),
+            (sauna.plugins.Plugin.STATUS_OK, '5 mail(s) in queue')
+        )
+        self.assertTupleEqual(
+            postfix.queue_size({'warn': 1, 'crit': 20}),
+            (sauna.plugins.Plugin.STATUS_WARN, '5 mail(s) in queue')
+        )
+        self.assertTupleEqual(
+            postfix.queue_size({'warn': 1, 'crit': 2}),
+            (sauna.plugins.Plugin.STATUS_CRIT, '5 mail(s) in queue')
+        )
