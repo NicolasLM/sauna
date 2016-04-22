@@ -7,7 +7,7 @@ except ImportError:
 
 from sauna.plugins import (human_to_bytes, bytes_to_human, Plugin,
                            PluginRegister)
-from sauna.plugins.ext import puppet_agent, postfix
+from sauna.plugins.ext import puppet_agent, postfix, memcached
 
 
 class PluginsTest(unittest.TestCase):
@@ -223,4 +223,69 @@ class PostfixTest(unittest.TestCase):
         self.assertTupleEqual(
             self.postfix.queue_size({'warn': 1, 'crit': 2}),
             (Plugin.STATUS_CRIT, '5 mail(s) in queue')
+        )
+
+
+class MemcachedTest(unittest.TestCase):
+
+    def setUp(self):
+        self.memcached = memcached.Memcached({})
+
+    def test_bytes(self):
+        self.memcached._stats = {'bytes': 1024}
+        self.assertTupleEqual(
+            self.memcached.bytes({'warn': '2K', 'crit': '4K'}),
+            (Plugin.STATUS_OK, 'Memcached memory: 1.0K')
+        )
+        self.assertTupleEqual(
+            self.memcached.bytes({'warn': '512', 'crit': '4K'}),
+            (Plugin.STATUS_WARN, 'Memcached memory: 1.0K')
+        )
+        self.memcached._stats = {'bytes': 100000}
+        self.assertTupleEqual(
+            self.memcached.bytes({'warn': '512', 'crit': '4K'}),
+            (Plugin.STATUS_CRIT, 'Memcached memory: 97.7K')
+        )
+
+    def test_used_percent(self):
+        self.memcached._stats = {'bytes': 512, 'limit_maxbytes': 1024}
+        self.assertTupleEqual(
+            self.memcached.used_percent({'warn': '40%', 'crit': '80%'}),
+            (Plugin.STATUS_WARN, 'Memcached memory used: 50% of 1.0K')
+        )
+
+    def test_current_items(self):
+        self.memcached._stats = {'curr_items': 100}
+        self.assertTupleEqual(
+            self.memcached.current_items({'warn': 50, 'crit': 200}),
+            (Plugin.STATUS_WARN, 'Memcached holds 100 items')
+        )
+
+    def test_accepting_connections(self):
+        self.memcached._stats = {'accepting_conns': 1}
+        self.assertTupleEqual(
+            self.memcached.accepting_connections({}),
+            (Plugin.STATUS_OK, 'Memcached is accepting connections')
+        )
+        self.memcached._stats = {'accepting_conns': 0}
+        self.assertTupleEqual(
+            self.memcached.accepting_connections({}),
+            (Plugin.STATUS_CRIT, 'Memcached is not accepting connections')
+        )
+
+    def test_raw_stats_to_dict(self):
+        data = b'''STAT pid 8509
+STAT accepting_conns 1
+STAT bytes 70
+STAT curr_items 1
+END
+'''
+        self.assertDictEqual(
+            self.memcached._raw_stats_to_dict(data),
+            {
+                'pid': 8509,
+                'accepting_conns': 1,
+                'bytes': 70,
+                'curr_items': 1
+            }
         )

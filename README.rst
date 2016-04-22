@@ -53,6 +53,7 @@ for the plugins that make sense for your setup. Available plugins are:
 * External command
 * Puppet agent
 * Postfix
+* Memcached
 
 Consumers
 ~~~~~~~~~
