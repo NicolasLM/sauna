@@ -1,12 +1,18 @@
 import unittest
+try:
+    from unittest import mock
+except ImportError:
+    # Python 3.2 does not have mock in the standard library
+    import mock
 
-from .context import sauna, mock
+from sauna.plugins import (human_to_bytes, bytes_to_human, Plugin,
+                           PluginRegister)
+from sauna.plugins.ext import puppet_agent, postfix
 
 
 class PluginsTest(unittest.TestCase):
 
     def test_human_to_bytes(self):
-        human_to_bytes = sauna.plugins.human_to_bytes
         self.assertEquals(0, human_to_bytes('0'))
         self.assertEquals(1000, human_to_bytes('1000'))
         self.assertEquals(1024, human_to_bytes('1K'))
@@ -16,7 +22,6 @@ class PluginsTest(unittest.TestCase):
         self.assertEquals(10737418240, human_to_bytes('10G'))
 
     def test_bytes_to_human(self):
-        bytes_to_human = sauna.plugins.bytes_to_human
         self.assertEquals('0B', bytes_to_human(0))
         self.assertEquals('1000B', bytes_to_human(1000))
         self.assertEquals('1.0K', bytes_to_human(1024))
@@ -24,13 +29,11 @@ class PluginsTest(unittest.TestCase):
         self.assertEquals('10.0G', bytes_to_human(10*1024*1024*1024))
 
     def test_strip_percent_sign(self):
-        strip_percent_sign = sauna.plugins.Plugin._strip_percent_sign
-        self.assertEquals(10, strip_percent_sign('10'))
-        self.assertEquals(10, strip_percent_sign('10%'))
-        self.assertEquals(-10, strip_percent_sign('-10%'))
+        self.assertEquals(10, Plugin._strip_percent_sign('10'))
+        self.assertEquals(10, Plugin._strip_percent_sign('10%'))
+        self.assertEquals(-10, Plugin._strip_percent_sign('-10%'))
 
     def test_strip_percent_sign_from_check_config(self):
-        func = sauna.plugins.Plugin._strip_percent_sign_from_check_config
         check_config = {
             'warn': '75%',
             'crit': 95,
@@ -41,10 +44,12 @@ class PluginsTest(unittest.TestCase):
             'crit': 95,
             'something_random': '10'
         }
-        self.assertDictEqual(expected_config, func(check_config))
+        self.assertDictEqual(
+            expected_config,
+            Plugin._strip_percent_sign_from_check_config(check_config)
+        )
 
     def test_get_threshold(self):
-        func = sauna.plugins.Plugin.get_thresholds
         check_config = {
             'warn': 75,
             'crit': 95,
@@ -52,96 +57,95 @@ class PluginsTest(unittest.TestCase):
         }
 
         # Test without modifier
-        self.assertTupleEqual((95, 75), func(check_config))
+        self.assertTupleEqual((95, 75), Plugin.get_thresholds(check_config))
 
         # Test with modifier
         def double(number):
             return number * 2
-        self.assertTupleEqual((190, 150), func(check_config, double))
+        self.assertTupleEqual(
+            (190, 150),
+            Plugin.get_thresholds(check_config, double)
+        )
 
     def test_value_to_status(self):
-        less = sauna.plugins.Plugin._value_to_status_less
-        more = sauna.plugins.Plugin._value_to_status_more
-        status_ok = sauna.plugins.Plugin.STATUS_OK
-        status_warn = sauna.plugins.Plugin.STATUS_WARN
-        status_crit = sauna.plugins.Plugin.STATUS_CRIT
+        less = Plugin._value_to_status_less
+        more = Plugin._value_to_status_more
 
         # Test less, imagine this check is about used RAM in percent
         check_config = {
             'warn': 75,
             'crit': 95,
         }
-        self.assertEquals(status_ok, less(10, check_config))
-        self.assertEquals(status_warn, less(80, check_config))
-        self.assertEquals(status_crit, less(100, check_config))
+        self.assertEquals(Plugin.STATUS_OK, less(10, check_config))
+        self.assertEquals(Plugin.STATUS_WARN, less(80, check_config))
+        self.assertEquals(Plugin.STATUS_CRIT, less(100, check_config))
 
         # Test less, imagine this check is about free RAM in percent
         check_config = {
             'warn': 25,
             'crit': 5,
         }
-        self.assertEquals(status_ok, more(50, check_config))
-        self.assertEquals(status_warn, more(20, check_config))
-        self.assertEquals(status_crit, more(2, check_config))
+        self.assertEquals(Plugin.STATUS_OK, more(50, check_config))
+        self.assertEquals(Plugin.STATUS_WARN, more(20, check_config))
+        self.assertEquals(Plugin.STATUS_CRIT, more(2, check_config))
 
     def test_get_all_plugins(self):
-        plugins = sauna.plugins.PluginRegister.all_plugins
+        plugins = PluginRegister.all_plugins
         self.assertIsInstance(plugins, dict)
         self.assertGreater(len(plugins), 1)
         for plugin_name, plugin_info in plugins.items():
             self.assertIn('plugin_cls', plugin_info)
             self.assertIn('checks', plugin_info)
-            self.assert_(issubclass(plugin_info['plugin_cls'],
-                                    sauna.plugins.Plugin))
+            self.assert_(issubclass(plugin_info['plugin_cls'], Plugin))
             self.assertIsInstance(plugin_info['checks'], dict)
 
     def test_get_plugin(self):
-        load_plugin = sauna.plugins.PluginRegister.get_plugin('Load')
-        self.assert_(issubclass(load_plugin['plugin_cls'],
-                                sauna.plugins.Plugin))
-
-        must_be_none = sauna.plugins.PluginRegister.get_plugin('Unknown')
-        self.assertIsNone(must_be_none)
+        import sauna
+        sauna.Sauna.import_submodules('sauna.plugins.ext')
+        load_plugin = PluginRegister.get_plugin('Load')
+        self.assert_(issubclass(load_plugin['plugin_cls'], Plugin))
+        self.assertIsNone(PluginRegister.get_plugin('Unknown'))
 
 
 class PuppetAgentTest(unittest.TestCase):
 
+    def setUp(self):
+        self.agent = puppet_agent.PuppetAgent({})
+
     @mock.patch('sauna.plugins.ext.puppet_agent.time')
     def test_last_run_delta(self, mock_time):
         mock_time.time.return_value = 1460836285.4
-        puppet_agent = sauna.plugins.ext.puppet_agent.PuppetAgent({})
-        puppet_agent._last_run_summary = {
+        self.agent._last_run_summary = {
             'time': {
                 'last_run': 1460836283
             }
         }
         self.assertTupleEqual(
-            puppet_agent.last_run_delta({'warn': 10, 'crit': 20}),
-            (sauna.plugins.Plugin.STATUS_OK, 'Puppet last ran 0:00:02 ago')
+            self.agent.last_run_delta({'warn': 10, 'crit': 20}),
+            (Plugin.STATUS_OK, 'Puppet last ran 0:00:02 ago')
         )
 
         mock_time.time.return_value = 1460836295.4
         self.assertTupleEqual(
-            puppet_agent.last_run_delta({'warn': 10, 'crit': 20}),
-            (sauna.plugins.Plugin.STATUS_WARN, 'Puppet last ran 0:00:12 ago')
+            self.agent.last_run_delta({'warn': 10, 'crit': 20}),
+            (Plugin.STATUS_WARN, 'Puppet last ran 0:00:12 ago')
         )
 
     def test_failures(self):
-        puppet_agent = sauna.plugins.ext.puppet_agent.PuppetAgent({})
-        puppet_agent._last_run_summary = {
+        self.agent._last_run_summary = {
             'events': {
                 'failure': 0
             }
         }
         self.assertTupleEqual(
-            puppet_agent.failures({'warn': 1, 'crit': 2}),
-            (sauna.plugins.Plugin.STATUS_OK, 'Puppet ran without trouble')
+            self.agent.failures({'warn': 1, 'crit': 2}),
+            (Plugin.STATUS_OK, 'Puppet ran without trouble')
         )
 
-        puppet_agent._last_run_summary['events']['failure'] = 1
+        self.agent._last_run_summary['events']['failure'] = 1
         self.assertTupleEqual(
-            puppet_agent.failures({'warn': 1, 'crit': 1}),
-            (sauna.plugins.Plugin.STATUS_CRIT,
+            self.agent.failures({'warn': 1, 'crit': 1}),
+            (Plugin.STATUS_CRIT,
              'Puppet last run had 1 failure(s)')
         )
 
@@ -173,51 +177,50 @@ class PuppetAgentTest(unittest.TestCase):
                 'total': 1,
             }
         }
-        puppet_agent = sauna.plugins.ext.puppet_agent.PuppetAgent({})
-        self.assertEquals(puppet_agent._last_run_summary, None)
-        self.assertDictEqual(puppet_agent.last_run_summary, expected)
-        self.assertDictEqual(puppet_agent._last_run_summary, expected)
+        self.assertEquals(self.agent._last_run_summary, None)
+        self.assertDictEqual(self.agent.last_run_summary, expected)
+        self.assertDictEqual(self.agent._last_run_summary, expected)
 
 
 class PostfixTest(unittest.TestCase):
 
+    def setUp(self):
+        self.postfix = postfix.Postfix({})
+
     def test_get_queue_size(self):
-        postfix = sauna.plugins.ext.postfix.Postfix({})
+        self.postfix._mailq_output = 'Mail queue is empty\n'
+        self.assertEqual(self.postfix._get_queue_size(), 0)
 
-        postfix._mailq_output = 'Mail queue is empty\n'
-        self.assertEqual(postfix._get_queue_size(), 0)
-
-        postfix._mailq_output = (
+        self.postfix._mailq_output = (
             'postqueue: fatal: Queue report unavailable '
             '- mail system is down\n'
         )
         with self.assertRaises(Exception):
-            postfix._get_queue_size()
+            self.postfix._get_queue_size()
 
-        postfix._mailq_output = '''
+        self.postfix._mailq_output = '''
         -Queue ID- --Size-- ----Arrival Time---- -Sender/Recipient-------
 89B3CC02*       436 Tue Apr 19 09:21:31  user@host
                                          user2@host
 
 -- 0 Kbytes in 1 Request.
 '''
-        self.assertEqual(postfix._get_queue_size(), 1)
+        self.assertEqual(self.postfix._get_queue_size(), 1)
 
-        postfix._mailq_output = '-- 105 Kbytes in 25 Requests.\n'
-        self.assertEqual(postfix._get_queue_size(), 25)
+        self.postfix._mailq_output = '-- 105 Kbytes in 25 Requests.\n'
+        self.assertEqual(self.postfix._get_queue_size(), 25)
 
     def test_queue_size(self):
-        postfix = sauna.plugins.ext.postfix.Postfix({})
-        postfix._get_queue_size = lambda: 5
+        self.postfix._get_queue_size = lambda: 5
         self.assertTupleEqual(
-            postfix.queue_size({'warn': 10, 'crit': 20}),
-            (sauna.plugins.Plugin.STATUS_OK, '5 mail(s) in queue')
+            self.postfix.queue_size({'warn': 10, 'crit': 20}),
+            (Plugin.STATUS_OK, '5 mail(s) in queue')
         )
         self.assertTupleEqual(
-            postfix.queue_size({'warn': 1, 'crit': 20}),
-            (sauna.plugins.Plugin.STATUS_WARN, '5 mail(s) in queue')
+            self.postfix.queue_size({'warn': 1, 'crit': 20}),
+            (Plugin.STATUS_WARN, '5 mail(s) in queue')
         )
         self.assertTupleEqual(
-            postfix.queue_size({'warn': 1, 'crit': 2}),
-            (sauna.plugins.Plugin.STATUS_CRIT, '5 mail(s) in queue')
+            self.postfix.queue_size({'warn': 1, 'crit': 2}),
+            (Plugin.STATUS_CRIT, '5 mail(s) in queue')
         )

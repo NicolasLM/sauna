@@ -9,7 +9,8 @@ import textwrap
 import signal
 import importlib
 import pkgutil
-
+import re
+import sys
 
 from sauna import plugins, consumers
 from sauna.plugins.base import Check
@@ -71,9 +72,12 @@ class Sauna:
         if config is None:
             config = {}
         self.config = config
-
         self.must_stop = threading.Event()
         self._consumers_queues = []
+        self.import_submodules(__name__ + '.plugins.ext')
+        self.import_submodules(__name__ + '.consumers.ext')
+        for extra_plugin_path in self.config.get('extra_plugins', []):
+            self.import_directory_modules(extra_plugin_path)
 
     @classmethod
     def assemble_config_sample(cls, path):
@@ -263,26 +267,32 @@ class Sauna:
 
         logging.debug('Exited main thread')
 
+    @classmethod
+    def import_submodules(cls, entity):
+        """Import packages and/or modules."""
+        entity = importlib.import_module(entity)
+        try:
+            for _, name, is_pkg in pkgutil.walk_packages(entity.__path__):
+                if not name.startswith('_') and is_pkg is False:
+                    full_name = entity.__name__ + '.' + name
+                    importlib.import_module(full_name)
+        except AttributeError:
+            pass
 
-def get_all_subclass(main_class):
-    # Check all subclass with recursion
-    subclasses = []
-    for subclass in main_class.__subclasses__():
-        subclasses.append(subclass)
-        subclasses += get_all_subclass(subclass)
-    return tuple(subclasses)
-
-
-def import_submodules(package):
-    # Please don't use logger in this method,
-    # it will disable all logger parameters
-    if isinstance(package, str):
-        package = importlib.import_module(package)
-
-    for loader, name, is_pkg in pkgutil.walk_packages(package.__path__):
-        if not name.startswith("_") and is_pkg is False:
-            full_name = package.__name__ + '.' + name
-            importlib.import_module(full_name)
-
-import_submodules(__name__+'.plugins.ext')
-import_submodules(__name__+'.consumers.ext')
+    @classmethod
+    def import_directory_modules(cls, path):
+        """Import all modules from a filesystem directory."""
+        try:
+            entries = os.listdir(path)
+        except OSError as e:
+            logging.error('Cannot load plugins from {}: {}'.format(path, e))
+            return
+        logging.info('Loading extra plugins from {}'.format(path))
+        sys.path.append(path)
+        for entry in entries:
+            if not os.path.isfile(os.path.join(path, entry)):
+                continue
+            regexp_result = re.search(r'(.+)\.py$', entry)
+            if regexp_result:
+                logging.debug('Loading {}'.format(regexp_result.groups()[0]))
+                cls.import_submodules(regexp_result.groups()[0])
