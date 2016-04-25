@@ -48,7 +48,7 @@ for the plugins that make sense for your setup. Available plugins are:
 * Load average
 * Memory and swap usage
 * Disk partition usage
-* Processes
+* Processes and file descriptors
 * Redis
 * External command
 * Puppet agent
