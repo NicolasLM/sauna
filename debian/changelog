@@ -1,3 +1,12 @@
+sauna (0.0.5-1) unstable; urgency=low
+
+  * Allow users to load extra plugins from their filesystem
+  * New plugin Memcached
+  * Plugin Processes: new check to monitor file descriptors
+  * Plugin Disk: new check to monitor inodes
+
+ -- Nicolas Le Manchet <nicolas@lemanchet.fr>  Fri, 29 Apr 2016 16:03:49 +0200
+
 sauna (0.0.4-1) unstable; urgency=low
 
   * Allow to run multiple consumers in parallel
