@@ -99,7 +99,7 @@ class Memcached(Plugin):
     def config_sample():
         return '''
         # Memcached
-        Memcached:
+        - type: Memcached
           checks:
             - type: bytes
               warn: 128M

@@ -31,7 +31,7 @@ class Command(Plugin):
         return '''
         # Execute external command
         # Return code is the service status
-        Command:
+        - type: Command
           checks:
             - type: command
               name: check_website

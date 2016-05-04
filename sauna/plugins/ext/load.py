@@ -38,7 +38,7 @@ class Load(Plugin):
     def config_sample():
         return '''
         # Load average
-        Load:
+        - type: Load
           checks:
             - type: load1
               warn: 2

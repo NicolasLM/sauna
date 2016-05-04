@@ -13,7 +13,7 @@ class Redis(Plugin):
             import redis
             self.redis = redis
         except ImportError:
-            from .. import DependencyError
+            from ... import DependencyError
             raise DependencyError(self.__class__.__name__, 'redis-py',
                                   'redis', 'python3-redis')
         self._redis_info = None
@@ -49,7 +49,7 @@ class Redis(Plugin):
     def config_sample():
         return '''
         # Redis
-        Redis:
+        - type: Redis
           checks:
             - type: used_memory
               warn: 128M

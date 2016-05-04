@@ -13,7 +13,7 @@ class HTTPConsumer(QueuedConsumer):
             import requests
             self.requests = requests
         except ImportError:
-            from .. import DependencyError
+            from ... import DependencyError
             raise DependencyError(self.__class__.__name__, 'requests',
                                   'requests', 'python3-requests')
         self.config = {
