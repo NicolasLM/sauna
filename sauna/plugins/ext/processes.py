@@ -17,28 +17,50 @@ class Processes(PsutilPlugin):
             '{} processes'.format(num_pids)
         )
 
-    @my_plugin.check()
-    def running(self, check_config):
+    def _count_running_processes(self, check_config):
+        """Count the number of times a process is running.
+
+        Processes are identified by their first argument 'exec' and
+        additional 'args'.
+        :rtype int
+        """
         process_exec = check_config['exec']
         required_args = check_config.get('args', '').split()
+        instances = 0
 
         for process in self.psutil.process_iter():
             try:
-                if process.exe() != process_exec:
-                    continue
-                if self._required_args_are_in_cmdline(required_args,
-                                                      process.cmdline()):
-                    return (
-                        self.STATUS_OK,
-                        'Process {} is running'.format(process_exec)
-                    )
+                cmdline = process.cmdline()
             except (self.psutil.NoSuchProcess, self.psutil.AccessDenied):
                 # Zombies and processes that stopped throw NoSuchProcess
-                pass
-        return (
-            self.STATUS_CRIT,
-            'Process {} is not running'.format(process_exec)
-        )
+                continue
+
+            # Often cmdline in an empty list
+            if not cmdline:
+                continue
+
+            if cmdline[0] != process_exec:
+                continue
+
+            if self._required_args_are_in_cmdline(required_args, cmdline):
+                instances += 1
+
+        return instances
+
+    @my_plugin.check()
+    def running(self, check_config):
+        process = check_config['exec']
+        nb = check_config.get('nb')
+        instances = self._count_running_processes(check_config)
+
+        if instances == 0:
+            return self.STATUS_CRIT, 'Process {} not running'.format(process)
+        if nb is None:
+            return self.STATUS_OK, 'Process {} is running'.format(process)
+        if instances == nb:
+            return self.STATUS_OK, 'Process {} is running'.format(process)
+        return (self.STATUS_WARN,
+                'Process {} is running {} times'.format(process, instances))
 
     @my_plugin.check()
     def file_descriptors(self, check_config):
@@ -108,7 +130,8 @@ class Processes(PsutilPlugin):
         system_max_fds = int(match.group(2))
         return int(system_opened_fds * 100 / system_max_fds)
 
-    def _required_args_are_in_cmdline(self, required_args, cmdline):
+    @classmethod
+    def _required_args_are_in_cmdline(cls, required_args, cmdline):
         for arg in required_args:
             if arg not in cmdline[1:]:
                 return False
