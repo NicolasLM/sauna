@@ -34,7 +34,7 @@ class PluginRegister:
     def check(self, **options):
         def decorator(func):
             check_name = options.pop("name", func.__name__)
-            self.checks[check_name] = func
+            self.checks[check_name] = func.__name__
             return func
         return decorator
 

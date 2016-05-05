@@ -115,6 +115,20 @@ class Sauna:
     def periodicity(self):
         return self.config.get('periodicity', 120)
 
+    @property
+    def plugins_checks(self):
+        plugins = []
+        if type(self.config['plugins']) is dict:
+            for plugin_name, plugin_data in self.config['plugins'].items():
+                plugin_data.update({'type': plugin_name})
+                plugins.append(plugin_data)
+        elif type(self.config['plugins']) is list:
+            plugins = self.config['plugins']
+        else:
+            print('Invalid configuration, plugins must be a list or a dict')
+            exit(1)
+        return plugins
+
     def get_active_checks_name(self):
         checks = self.get_all_active_checks()
         return [check.name for check in checks]
@@ -137,8 +151,8 @@ class Sauna:
     def get_all_active_checks(self):
         checks = []
         deps_error = []
-        for plugin_name, plugin_data in self.config['plugins'].items():
-
+        for plugin_data in self.plugins_checks:
+            plugin_name = plugin_data['type']
             # Load plugin
             plugin_info = PluginRegister.get_plugin(plugin_name)
             if not plugin_info:
@@ -156,12 +170,12 @@ class Sauna:
 
             # Launch plugin checks
             for check in plugin_data['checks']:
-                check_func = getattr(plugin, check['type'])
-
-                if not check_func:
+                func_name = plugin_info['checks'].get(check['type'])
+                if func_name is None:
                     print('Unknown check {} on plugin {}'.format(check['type'],
                                                                  plugin_name))
                     exit(1)
+                check_func = getattr(plugin, func_name)
 
                 check_name = (check.get('name') or '{}_{}'.format(
                     plugin_name, check['type']
@@ -171,6 +185,16 @@ class Sauna:
         if deps_error:
             for error in deps_error:
                 print(error)
+            exit(1)
+
+        # Check duplicate name
+        names = [check.name for check in checks]
+        duplicates_names = {name: names.count(name)
+                            for name in names if names.count(name) > 1}
+        for name, count in duplicates_names.items():
+            print("check name {} was found {} times, please add name"
+                  " field to theses checks".format(name, count))
+        if duplicates_names:
             exit(1)
         return checks
 

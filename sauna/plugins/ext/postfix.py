@@ -92,7 +92,7 @@ class Postfix(Plugin):
     def config_sample():
         return '''
         # Postfix queue
-        Postfix:
+        - type: Postfix
           checks:
             - type: queue_size
               warn: 5

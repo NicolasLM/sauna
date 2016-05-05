@@ -118,7 +118,7 @@ class Processes(PsutilPlugin):
     def config_sample():
         return '''
         # Information about processes
-        Processes:
+        - type: Processes
           checks:
             # Number of processes in the system
             - type: count

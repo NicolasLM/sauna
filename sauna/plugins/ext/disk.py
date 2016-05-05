@@ -47,7 +47,7 @@ class Disk(PsutilPlugin):
     def config_sample():
         return '''
         # Usage of disks
-        Disk:
+        - type: Disk
           checks:
             - type: used_percent
               warn: 80%

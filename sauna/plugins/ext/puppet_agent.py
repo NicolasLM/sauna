@@ -52,7 +52,7 @@ class PuppetAgent(Plugin):
         # Puppet agent
         # sauna user must be able to read:
         # /var/lib/puppet/state/last_run_summary.yaml
-        PuppetAgent:
+        - type: PuppetAgent
           checks:
             - type: last_run_delta
               warn: 3600

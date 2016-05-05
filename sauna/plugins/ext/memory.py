@@ -55,7 +55,7 @@ class Memory(PsutilPlugin):
     def config_sample():
         return '''
         # System memory
-        Memory:
+        - type: Memory
           checks:
             - type: available
               warn: 6G
