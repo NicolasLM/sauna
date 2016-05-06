@@ -1,3 +1,11 @@
+sauna (0.0.6-1) unstable; urgency=low
+
+  * New configuration syntax of plugins, allows more flexibility
+  * New plugin HTTP
+  * Plugin Processes: improve running check to count instances of a process
+
+ -- Nicolas Le Manchet <nicolas@lemanchet.fr>  Fri, 06 May 2016 11:33:52 +0200
+
 sauna (0.0.5-1) unstable; urgency=low
 
   * Allow users to load extra plugins from their filesystem
