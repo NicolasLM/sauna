@@ -54,6 +54,7 @@ for the plugins that make sense for your setup. Available plugins are:
 * Puppet agent
 * Postfix
 * Memcached
+* HTTP servers
 
 Consumers
 ~~~~~~~~~
