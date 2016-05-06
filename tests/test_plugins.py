@@ -7,7 +7,7 @@ except ImportError:
 
 from sauna.plugins import (human_to_bytes, bytes_to_human, Plugin,
                            PluginRegister)
-from sauna.plugins.ext import puppet_agent, postfix, memcached
+from sauna.plugins.ext import puppet_agent, postfix, memcached, processes
 
 
 class PluginsTest(unittest.TestCase):
@@ -289,3 +289,122 @@ END
                 'curr_items': 1
             }
         )
+
+
+class ProcessesTest(unittest.TestCase):
+
+    def setUp(self):
+        Processes = processes.Processes
+        Processes.__init__ = lambda *args, **kwargs: None
+        self.processes = Processes({})
+        self.processes.psutil = mock.Mock()
+
+    def test_count(self):
+        self.processes.psutil.pids.return_value = [1, 2, 3]
+        self.assertTupleEqual(
+            self.processes.count({'warn': 5, 'crit': 10}),
+            (Plugin.STATUS_OK, '3 processes')
+        )
+        self.assertTupleEqual(
+            self.processes.count({'warn': 1, 'crit': 10}),
+            (Plugin.STATUS_WARN, '3 processes')
+        )
+        self.assertTupleEqual(
+            self.processes.count({'warn': 1, 'crit': 2}),
+            (Plugin.STATUS_CRIT, '3 processes')
+        )
+
+    def test_count_running_processes(self):
+        class Process:
+            def __init__(self, cmdline):
+                self._cmdline = cmdline
+
+            def cmdline(self):
+                return self._cmdline
+
+        self.processes.psutil.process_iter.return_value = [
+            Process(['/bin/bash']),
+            Process(['/bin/bash']),
+            Process(['/usr/sbin/sshd', '-D']),
+        ]
+
+        check_config = {'exec': '/bin/bash'}
+        self.assertEqual(
+            self.processes._count_running_processes(check_config), 2
+        )
+        check_config = {'exec': '/usr/sbin/sshd'}
+        self.assertEqual(
+            self.processes._count_running_processes(check_config), 1
+        )
+        check_config = {'exec': '/usr/sbin/sshd', 'args': '-D'}
+        self.assertEqual(
+            self.processes._count_running_processes(check_config), 1
+        )
+        check_config = {'exec': '/usr/sbin/sshd', 'args': '-D -a'}
+        self.assertEqual(
+            self.processes._count_running_processes(check_config), 0
+        )
+        check_config = {'exec': '/usr/bin/pulseaudio'}
+        self.assertEqual(
+            self.processes._count_running_processes(check_config), 0
+        )
+
+    def test_running_without_nb(self):
+        check_config = {'exec': 'bash'}
+        self.processes._count_running_processes = lambda *args, **kwargs: 0
+        self.assertTupleEqual(
+            self.processes.running(check_config),
+            (Plugin.STATUS_CRIT, 'Process bash not running')
+        )
+
+        self.processes._count_running_processes = lambda *args, **kwargs: 1
+        self.assertTupleEqual(
+            self.processes.running(check_config),
+            (Plugin.STATUS_OK, 'Process bash is running')
+        )
+
+        self.processes._count_running_processes = lambda *args, **kwargs: 2
+        self.assertTupleEqual(
+            self.processes.running(check_config),
+            (Plugin.STATUS_OK, 'Process bash is running')
+        )
+
+    def test_running_with_nb(self):
+        check_config = {'exec': 'bash', 'nb': 2}
+        self.processes._count_running_processes = lambda *args, **kwargs: 0
+        self.assertTupleEqual(
+            self.processes.running(check_config),
+            (Plugin.STATUS_CRIT, 'Process bash not running')
+        )
+
+        self.processes._count_running_processes = lambda *args, **kwargs: 1
+        self.assertTupleEqual(
+            self.processes.running(check_config),
+            (Plugin.STATUS_WARN, 'Process bash is running 1 times')
+        )
+
+        self.processes._count_running_processes = lambda *args, **kwargs: 2
+        self.assertTupleEqual(
+            self.processes.running(check_config),
+            (Plugin.STATUS_OK, 'Process bash is running')
+        )
+
+        self.processes._count_running_processes = lambda *args, **kwargs: 3
+        self.assertTupleEqual(
+            self.processes.running(check_config),
+            (Plugin.STATUS_WARN, 'Process bash is running 3 times')
+        )
+
+    def test_required_args_are_in_cmdline(self):
+        self.assertTrue(self.processes._required_args_are_in_cmdline(
+            [], ['/usr/sbin/sshd', '-D']
+        ))
+        self.assertTrue(self.processes._required_args_are_in_cmdline(
+            ['-D'], ['/usr/sbin/sshd', '-D']
+        ))
+        self.assertFalse(self.processes._required_args_are_in_cmdline(
+            ['-a'], ['/usr/sbin/sshd', '-D']
+        ))
+        self.assertFalse(self.processes._required_args_are_in_cmdline(
+            ['-a', '-D'], ['/usr/sbin/sshd', '-D']
+        ))
