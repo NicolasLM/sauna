@@ -22,9 +22,11 @@ class HTTP(Plugin):
         timeout = check_config.get('timeout', 10000) / 1000
         code = check_config.get('code', 200)
         content = check_config.get('content', '')
+        verify_ca_crt = check_config.get('verify_ca_crt', True)
 
         try:
             r = self.requests.request(method, check_config['url'],
+                                      verify=verify_ca_crt,
                                       timeout=timeout)
         except Exception as e:
             return Plugin.STATUS_CRIT, '{}'.format(e)
@@ -54,6 +56,7 @@ class HTTP(Plugin):
           checks:
             - type: request
               url: https://www.website.tld
+              verify_ca_crt: true
               method: GET
               code: 200
               content: Welcome!
