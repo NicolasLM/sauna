@@ -1,3 +1,10 @@
+sauna (0.0.7-1) unstable; urgency=medium
+
+  * Plugin HTTP: for HTTPS, allow to provide a custom certificate or disable
+    SSL verification
+
+ -- Nicolas Le Manchet <nicolas@lemanchet.fr>  Thu, 12 May 2016 16:36:35 +0200
+
 sauna (0.0.6-1) unstable; urgency=low
 
   * New configuration syntax of plugins, allows more flexibility
