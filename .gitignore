@@ -4,3 +4,4 @@ sauna.egg-info
 venv
 sauna.yml
 sauna-sample.yml
+doc/_build
