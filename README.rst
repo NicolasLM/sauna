@@ -6,7 +6,7 @@ server.
 
 Sauna comes batteries included, it is able run many system checks (load, memory, disk...) as well
 as monitor applications (redis, memcached, puppet...). It is easily extensible to include your own
-checks.
+checks and can even run the thousands of existing Nagios plugins.
 
 Installation
 ------------

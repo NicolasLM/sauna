@@ -59,6 +59,8 @@ Assuming you have a load balancing frontend/backend already set up, activate che
 * ``tcp-check connect port 5555`` tells HAProxy to check the port 5555 of servers in the pool
 * ``tcp-check expect string OK`` consider the server down if it does not answer ``OK``
 
+.. _nagios:
+
 Reusing Nagios plugins
 ----------------------
 

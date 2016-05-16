@@ -4,7 +4,10 @@ Writing custom checks
 =====================
 
 Sauna ships with its own plugins for standard system monitoring, but sometimes you need more. This
-guide is a quick tutorial to start writing your own plugins to extend sauna's checks.
+guide is a quick tutorial to start writing your own Python plugins to extend sauna's checks.
+
+If writing Python is not an option, binaries written is any language can be run through the
+:ref:`Command plugin <nagios>`.
 
 For the sake of learning we will create the Uptime plugin. It will contain a simple check that will
 alert you when the uptime for your machine is under a threshold. This could be used to get a

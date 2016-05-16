@@ -128,7 +128,8 @@ html_theme = 'alabaster'
 html_theme_options = {
     'description': 'Lightweight daemon that runs and reports health checks',
     'github_user': 'NicolasLM',
-    'github_repo': 'sauna'
+    'github_repo': 'sauna',
+    'github_button': False
 }
 
 # Add any paths that contain custom themes here, relative to this directory.

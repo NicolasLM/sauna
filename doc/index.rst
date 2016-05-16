@@ -13,7 +13,7 @@ server.
 
 Sauna comes batteries included, it is able run many system checks (load, memory, disk...) as well
 as monitor applications (redis, memcached, puppet...). It is easily :ref:`extensible <custom>` to
-include your own checks.
+include your own checks and can even run the thousands of existing :ref:`Nagios plugins <nagios>`.
 
 Painless monitoring of your servers is just a pip install away::
 
