@@ -55,6 +55,10 @@ All these parameters can be left out, in this case they take their default value
     A list of directories where :ref:`additional plugins <custom>` can be found. Defaults to no
     extra directory, meaning it does not load plugins beyond the core ones.
 
+**include**
+    A path containing other configuration files to include. It can be used to separate each plugin
+    in its own configuration file. File globs are expanded, example ``/etc/sauna.d/*.yml``.
+
 Example::
 
     ---
