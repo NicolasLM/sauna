@@ -11,6 +11,7 @@ import importlib
 import pkgutil
 import re
 import sys
+import glob
 
 from sauna import plugins, consumers
 from sauna.plugins.base import Check
@@ -52,6 +53,26 @@ class DependencyError(Exception):
         return self.msg
 
 
+def _merge_config(original, included):
+    """Add properties from a dict to another dict.
+
+    :param original: dict to update
+    """
+    for key, value in included.items():
+        if isinstance(value, list):
+            try:
+                original[key].extend(value)
+            except KeyError:
+                original[key] = value
+        elif isinstance(value, dict):
+            try:
+                original[key].update(value)
+            except KeyError:
+                original[key] = value
+        else:
+            original[key] = value
+
+
 def read_config(config_file):
     # importing yaml here because dependency is not installed
     # when fetching __version__ from setup.py
@@ -59,11 +80,17 @@ def read_config(config_file):
 
     try:
         with open(config_file) as f:
-            return yaml.safe_load(f)
+            config = yaml.safe_load(f)
     except OSError as e:
         print('Cannot read configuration file {}: {}'
               .format(config_file, e))
         exit(1)
+
+    for config_file_included in glob.glob(config.get('include', '')):
+        config_included = read_config(config_file_included)
+        _merge_config(config, config_included)
+
+    return config
 
 
 class Sauna:
