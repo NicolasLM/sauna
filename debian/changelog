@@ -1,3 +1,9 @@
+sauna (0.0.8-1) unstable; urgency=low
+
+  * Allow to include additional configuration files
+
+ -- Nicolas Le Manchet <nicolas@lemanchet.fr>  Thu, 19 May 2016 15:21:56 +0200
+
 sauna (0.0.7-1) unstable; urgency=medium
 
   * Plugin HTTP: for HTTPS, allow to provide a custom certificate or disable
