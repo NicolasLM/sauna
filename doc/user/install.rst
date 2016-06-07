@@ -48,3 +48,13 @@ Once you have the sources, simply install it with::
     $ python setup.py install
 
 If you are interested in writing your own checks, head up to the :ref:`development <custom>`.
+
+Docker image
+------------
+
+A Docker image is available on the `Docker Hub <https://hub.docker.com/r/nicolaslm/sauna/>`_. It
+allows to run sauna in a container::
+
+    $ docker pull nicolaslm/sauna
+
+
