@@ -39,9 +39,7 @@ class Redis(Plugin):
     @property
     def redis_info(self):
         if not self._redis_info:
-            host = self.config.get('host', 'localhost')
-            port = self.config.get('port', 6379)
-            r = self.redis.StrictRedis(host=host, port=port)
+            r = self.redis.StrictRedis(**self.config)
             self._redis_info = r.info()
         return self._redis_info
 
