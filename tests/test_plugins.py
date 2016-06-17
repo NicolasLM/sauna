@@ -314,6 +314,24 @@ class ProcessesTest(unittest.TestCase):
             (Plugin.STATUS_CRIT, '3 processes')
         )
 
+    def test_zombies(self):
+        class Process:
+            def __init__(self, status='sleeping'):
+                self._status = status
+
+            def status(self):
+                return self._status
+
+        self.processes.psutil.process_iter.return_value = [
+            Process('sleeping'),
+            Process('zombie'),
+            Process('sleeping'),
+        ]
+        self.assertTupleEqual(
+            self.processes.zombies({'warn': 1, 'crit': 10}),
+            (Plugin.STATUS_WARN, '1 zombies')
+        )
+
     def test_count_running_processes(self):
         class Process:
             def __init__(self, cmdline):
