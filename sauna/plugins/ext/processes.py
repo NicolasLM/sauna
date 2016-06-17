@@ -17,6 +17,16 @@ class Processes(PsutilPlugin):
             '{} processes'.format(num_pids)
         )
 
+    @my_plugin.check()
+    def zombies(self, check_config):
+        zombies = [p for p in self.psutil.process_iter()
+                   if p.status() == 'zombie']
+        num_zombies = len(zombies)
+        return (
+            self._value_to_status_less(num_zombies, check_config),
+            '{} zombies'.format(num_zombies)
+        )
+
     def _count_running_processes(self, check_config):
         """Count the number of times a process is running.
 
@@ -147,6 +157,10 @@ class Processes(PsutilPlugin):
             - type: count
               warn: 400
               crit: 500
+            # Number of zombies processes in the system
+            - type: zombies
+              warn: 1
+              crit: 5
             # File descriptors
             - type: file_descriptors
               warn: 60%
