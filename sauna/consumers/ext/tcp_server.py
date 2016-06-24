@@ -112,7 +112,7 @@ class TCPServerConsumer(AsyncConsumer):
             try:
                 read_data = s.recv(4096)
             except socket.error as e:
-                self.logging('warning',
+                self.logging('debug',
                              'Error while receiving, closing connection: {}'
                              .format(e))
                 self._close_socket(s)
@@ -129,7 +129,7 @@ class TCPServerConsumer(AsyncConsumer):
         try:
             sent_len = s.send(self.write_buffers[s])
         except socket.error as e:
-            self.logging('warning',
+            self.logging('debug',
                          'Error while sending, closing connection: {}'
                          .format(e))
             self._close_socket(s)
@@ -153,7 +153,7 @@ class TCPServerConsumer(AsyncConsumer):
             )
 
             for s in errored:
-                self.logging('warning', 'Connection in error, closing it')
+                self.logging('debug', 'Connection in error, closing it')
                 self._close_socket(s)
 
             for s in readable:
