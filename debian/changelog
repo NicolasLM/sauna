@@ -1,3 +1,11 @@
+sauna (0.0.9-1) unstable; urgency=low
+
+  * Plugin Redis: allow to pass arbitrary config parameters
+  * Plugin Processes: create check for zombie processes
+  * Consumer TCPServer: decrease some log levels
+
+ -- Nicolas Le Manchet <nicolas@lemanchet.fr>  Tue, 28 Jun 2016 14:26:33 +0200
+
 sauna (0.0.8-1) unstable; urgency=low
 
   * Allow to include additional configuration files
