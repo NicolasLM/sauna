@@ -7,7 +7,8 @@ except ImportError:
 
 from sauna.plugins import (human_to_bytes, bytes_to_human, Plugin,
                            PluginRegister)
-from sauna.plugins.ext import puppet_agent, postfix, memcached, processes
+from sauna.plugins.ext import (puppet_agent, postfix, memcached, processes,
+                               hwmon)
 
 
 class PluginsTest(unittest.TestCase):
@@ -426,3 +427,59 @@ class ProcessesTest(unittest.TestCase):
         self.assertFalse(self.processes._required_args_are_in_cmdline(
             ['-a', '-D'], ['/usr/sbin/sshd', '-D']
         ))
+
+
+class HwmonPluginTest(unittest.TestCase):
+
+    def setUp(self):
+        self.hwmon = hwmon.Hwmon({})
+
+    def test_no_temperature(self):
+        self.hwmon._get_temperatures = lambda: []
+        self.assertTupleEqual(
+            self.hwmon.temperature({'warn': 20, 'crit': 40}),
+            (Plugin.STATUS_UNKNOWN, 'No sensor found')
+        )
+
+    def test_temperature(self):
+        self.hwmon._get_temperatures = lambda: [
+            hwmon.Sensor('Core', '1', 25),
+            hwmon.Sensor('Core', '2', 40),
+            hwmon.Sensor('Core', '3', 20),
+            hwmon.Sensor('Core', '4', 26)
+        ]
+        self.assertTupleEqual(
+            self.hwmon.temperature({'warn': 50, 'crit': 60}),
+            (Plugin.STATUS_OK, 'Temperature okay (40°C)')
+        )
+        self.assertTupleEqual(
+            self.hwmon.temperature({'warn': 20, 'crit': 40}),
+            (Plugin.STATUS_CRIT, 'Sensor Core/2 40°C')
+        )
+
+    def test_filter_sensors_temperature(self):
+        self.hwmon._get_temperatures = lambda: [
+            hwmon.Sensor('Core', '1', 25),
+            hwmon.Sensor('Buggy', 'sensor', 9999),
+        ]
+        self.assertTupleEqual(
+            self.hwmon.temperature({'warn': 50, 'crit': 60,
+                                    'sensors': ['Core']}),
+            (Plugin.STATUS_OK, 'Temperature okay (25°C)')
+        )
+
+    @mock.patch('os.listdir')
+    @mock.patch('os.path.isfile')
+    def test_get_devices(self, isfile_mock, listdir_mock):
+        isfile_mock.return_value = False
+        listdir_mock.return_value = ['hwmon1', 'hwmon2']
+        self.assertSetEqual(
+            self.hwmon._get_devices(),
+            {'/sys/class/hwmon/hwmon1', '/sys/class/hwmon/hwmon2'}
+        )
+        isfile_mock.return_value = True
+        self.assertSetEqual(
+            self.hwmon._get_devices(),
+            {'/sys/class/hwmon/hwmon1/device',
+             '/sys/class/hwmon/hwmon2/device'}
+        )
