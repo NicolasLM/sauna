@@ -1,3 +1,10 @@
+sauna (0.0.10-1) unstable; urgency=low
+
+  * New plugin Hwmon for Linux hardware monitoring
+  * New command Register to interact with OVH Shinken as a Service API
+
+ -- Nicolas Le Manchet <nicolas@lemanchet.fr>  Mon, 11 Jul 2016 14:56:21 +0200
+
 sauna (0.0.9-1) unstable; urgency=low
 
   * Plugin Redis: allow to pass arbitrary config parameters
