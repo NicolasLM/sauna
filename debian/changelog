@@ -1,3 +1,9 @@
+sauna (0.0.11-1) unstable; urgency=low
+
+  * New plugin TCP that establishes TCP connections
+
+ -- Nicolas Le Manchet <nicolas@lemanchet.fr>  Tue, 12 Jul 2016 17:24:19 +0200
+
 sauna (0.0.10-1) unstable; urgency=low
 
   * New plugin Hwmon for Linux hardware monitoring

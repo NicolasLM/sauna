@@ -19,7 +19,7 @@ from sauna.consumers.base import QueuedConsumer
 from sauna.consumers import ConsumerRegister
 from sauna.plugins import PluginRegister
 
-__version__ = '0.0.10'
+__version__ = '0.0.11'
 
 ServiceCheck = namedtuple('ServiceCheck',
                           ['timestamp', 'hostname', 'name',
