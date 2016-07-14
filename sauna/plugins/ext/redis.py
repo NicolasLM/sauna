@@ -43,6 +43,14 @@ class Redis(Plugin):
             self._redis_info = r.info()
         return self._redis_info
 
+    @my_plugin.check()
+    def llen(self, check_config):
+        r = self.redis.StrictRedis(**self.config)
+        num_items = r.llen(check_config['key'])
+        status = self._value_to_status_less(num_items, check_config)
+        output = '{} items in key {}'.format(num_items, check_config['key'])
+        return status, output
+
     @staticmethod
     def config_sample():
         return '''
@@ -55,6 +63,11 @@ class Redis(Plugin):
             - type: used_memory_rss
               warn: 128M
               crit: 1024M
+            # Check the size of a list
+            - type: llen
+              key: celery
+              warn: 10
+              crit: 20
           config:
             host: localhost
             port: 6379
