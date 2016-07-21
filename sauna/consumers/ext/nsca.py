@@ -27,7 +27,7 @@ class NSCAConsumer(QueuedConsumer):
 
     init_payload_fmt = '!128sL'
     init_payload_size = struct.calcsize(init_payload_fmt)
-    service_payload_fmt = '!hhIIh{}s{}s{}s'.format(
+    service_payload_fmt = '!hhIIh{}s{}s{}sh'.format(
         max_hostname_size, max_service_size, max_output_size
     )
     service_payload_size = struct.calcsize(service_payload_fmt)
@@ -68,7 +68,8 @@ class NSCAConsumer(QueuedConsumer):
             service_check.status,
             service_check.hostname.encode('utf8'),
             service_check.name.encode('utf8'),
-            service_check.output.encode('utf8')
+            service_check.output.encode('utf8'),
+            0  # Padding
         ]
         crc = binascii.crc32(struct.pack(self.service_payload_fmt,
                                          *service_payload_list))
