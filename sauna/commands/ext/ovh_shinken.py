@@ -88,7 +88,6 @@ class Client(object):
     def __init__(self, endpoint=None, application_key=None,
                  application_secret=None, consumer_key=None, timeout=TIMEOUT):
         from requests import Session
-        from requests.packages.urllib3.util.retry import Retry
         from requests.adapters import HTTPAdapter
 
         self._endpoint = ENDPOINTS[endpoint]
@@ -99,12 +98,20 @@ class Client(object):
         # lazy load time delta
         self._time_delta = None
 
-        # use a requests session to reuse HTTPS connections between requests
-        retries = Retry(
-            total=5,
-            backoff_factor=0.2,
-            status_forcelist=[422, 500, 502, 503, 504]
-        )
+        try:
+            # Some older versions of requests to not have the urllib3
+            # vendorized package
+            from requests.packages.urllib3.util.retry import Retry
+        except ImportError:
+            retries = 5
+        else:
+            # use a requests session to reuse connections between requests
+            retries = Retry(
+                total=5,
+                backoff_factor=0.2,
+                status_forcelist=[422, 500, 502, 503, 504]
+            )
+
         self._session = Session()
         self._session.mount('https://', HTTPAdapter(max_retries=retries))
         self._session.mount('http://', HTTPAdapter(max_retries=retries))
