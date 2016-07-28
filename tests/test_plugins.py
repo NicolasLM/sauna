@@ -8,7 +8,7 @@ except ImportError:
 from sauna.plugins import (human_to_bytes, bytes_to_human, Plugin,
                            PluginRegister)
 from sauna.plugins.ext import (puppet_agent, postfix, memcached, processes,
-                               hwmon)
+                               hwmon, mdstat)
 
 
 class PluginsTest(unittest.TestCase):
@@ -482,4 +482,74 @@ class HwmonPluginTest(unittest.TestCase):
             self.hwmon._get_devices(),
             {'/sys/class/hwmon/hwmon1/device',
              '/sys/class/hwmon/hwmon2/device'}
+        )
+
+
+class MDStatPluginTest(unittest.TestCase):
+
+    def setUp(self):
+        self.mdstat = mdstat.MDStat({})
+
+    def test_no_arrays(self):
+        self.mdstat._md_stats = {'arrays': {}, 'personalities': []}
+        self.assertTupleEqual(
+            self.mdstat.status({}),
+            (Plugin.STATUS_UNKNOWN, 'No RAID array detected')
+        )
+
+    def test_single_healthy_array(self):
+        self.mdstat._md_stats = {
+            'arrays': {
+                'md0': {
+                    'available': '2',
+                    'components': {'sda1': '0', 'sdb1': '1'},
+                    'config': 'UU',
+                    'status': 'active',
+                    'type': 'raid1',
+                    'used': '2'
+                }
+            },
+            'personalities': ['raid1']
+        }
+        self.assertTupleEqual(
+            self.mdstat.status({}),
+            (Plugin.STATUS_OK, 'All arrays are healthy')
+        )
+
+    def test_bad_status_array(self):
+        self.mdstat._md_stats = {
+            'arrays': {
+                'md0': {
+                    'available': '2',
+                    'components': {'sda1': '0', 'sdb1': '1'},
+                    'config': 'UU',
+                    'status': 'inactive',
+                    'type': 'raid1',
+                    'used': '2'
+                }
+            },
+            'personalities': ['raid1']
+        }
+        self.assertTupleEqual(
+            self.mdstat.status({}),
+            (Plugin.STATUS_CRIT, 'md0 is in status inactive')
+        )
+
+    def test_bad_device_nb_array(self):
+        self.mdstat._md_stats = {
+            'arrays': {
+                'md0': {
+                    'available': '2',
+                    'components': {'sda1': '0', 'sdb1': '1'},
+                    'config': 'UU',
+                    'status': 'active',
+                    'type': 'raid1',
+                    'used': '1'
+                }
+            },
+            'personalities': ['raid1']
+        }
+        self.assertTupleEqual(
+            self.mdstat.status({}),
+            (Plugin.STATUS_CRIT, 'md0 uses 1/2 devices')
         )
