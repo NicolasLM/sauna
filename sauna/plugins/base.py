@@ -71,8 +71,9 @@ class Plugin:
 
 
 class Check:
-    def __init__(self, name, check_func, config):
+    def __init__(self, name, periodicity, check_func, config):
         self.name = name
+        self.periodicity = periodicity
         self.check_func = check_func
         self.config = config
 

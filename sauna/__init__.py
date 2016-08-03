@@ -18,6 +18,7 @@ from sauna.plugins.base import Check
 from sauna.consumers.base import QueuedConsumer
 from sauna.consumers import ConsumerRegister
 from sauna.plugins import PluginRegister
+from sauna.scheduler import Scheduler, Job
 
 __version__ = '0.0.12'
 
@@ -208,7 +209,11 @@ class Sauna:
                     plugin_name, check['type']
                 ).lower())
 
-                checks.append(Check(check_name, check_func, check))
+                check_periodicity = (check.get('periodicity') or
+                                     self.periodicity)
+
+                checks.append(Check(check_name, check_periodicity,
+                                    check_func, check))
         if deps_error:
             for error in deps_error:
                 print(error)
@@ -225,35 +230,54 @@ class Sauna:
             exit(1)
         return checks
 
-    def launch_all_checks(self, hostname):
+    def launch_all_checks(self):
+        """Run once every single check."""
         for check in self.get_all_active_checks():
+            yield self.launch_check(check)
 
-            try:
-                status, output = check.run_check()
-            except Exception as e:
-                logging.warning('Could not run check {}: {}'.format(
-                    check.name, str(e)
-                ))
-                status = 3
-                output = str(e)
-            s = ServiceCheck(
-                timestamp=int(time.time()),
-                hostname=hostname,
-                name=check.name,
-                status=status,
-                output=output
-            )
-            yield s
+    def launch_and_publish_checks_with_periodicity(self, periodicity):
+        """Run once every check matching the given periodicity.
+
+        Sends the result of each check to the queues and shared dict.
+        """
+        checks = filter(lambda x: x.periodicity == periodicity,
+                        self.get_all_active_checks())
+        for check in checks:
+            service_check = self.launch_check(check)
+            logging.debug('Pushing to consumers: {}'.
+                          format(service_check.name))
+            self.send_data_to_consumers(service_check)
+            with check_results_lock:
+                check_results[service_check.name] = service_check
+
+    def launch_check(self, check):
+        try:
+            status, output = check.run_check()
+        except Exception as e:
+            logging.warning('Could not run check {}: {}'.format(
+                check.name, str(e)
+            ))
+            status = 3
+            output = str(e)
+        return ServiceCheck(
+            timestamp=int(time.time()),
+            hostname=self.hostname,
+            name=check.name,
+            status=status,
+            output=output
+        )
 
     def run_producer(self):
-        while True:
-            for service_check in self.launch_all_checks(self.hostname):
-                logging.debug(
-                    'Pushing to main queue: {}'.format(service_check))
-                self.send_data_to_consumers(service_check)
-                with check_results_lock:
-                    check_results[service_check.name] = service_check
-            if self.must_stop.wait(timeout=self.periodicity):
+        periodicities = {check.periodicity
+                         for check in self.get_all_active_checks()}
+        jobs = [Job(p, self.launch_and_publish_checks_with_periodicity, p)
+                for p in periodicities]
+        logging.info('Running checks with interval: {}'
+                     .format(str(periodicities)))
+        scheduler = Scheduler(jobs)
+
+        for _ in scheduler:
+            if self.must_stop.wait(timeout=scheduler.tick_duration):
                 break
         logging.debug('Exited producer thread')
 
