@@ -25,6 +25,7 @@ Getting started with sauna:
    :maxdepth: 1
 
    user/install
+   user/cli
    user/configuration
    user/service
    user/plugins

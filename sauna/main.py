@@ -28,7 +28,7 @@ def build_main_doc():
     doc = __doc__
     for name, func in sorted(commands.CommandRegister.all_commands.items()):
         summary = func.__doc__ .splitlines()[0]
-        doc += '  {}  - {}\n'.format(name, summary)
+        doc += '  {:<28}  {}\n'.format(name, summary)
     return doc
 
 
