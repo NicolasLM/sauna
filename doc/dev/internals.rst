@@ -75,6 +75,9 @@ Producer
 The producer is really simple, it is a loop that creates instances of plugins, run the checks and
 goes to sleep until it needs to loop again. Check results are appended to the consumers' queues.
 
+To handle checks that don't run at the same interval, a simple scheduler tells which checks should
+be run each time the producer wakes up.
+
 Consumers
 ~~~~~~~~~
 

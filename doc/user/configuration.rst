@@ -44,8 +44,10 @@ Generic parameters
 All these parameters can be left out, in this case they take their default value.
 
 **periodicity**
-    How often, in seconds, will checks be run. The default value of 120, means that sauna will run
+    How often, in seconds, will checks be run. The default value of 120 means that sauna will run
     all checks every two minutes.
+    Individual checks that need to run more or less often can override their ``periodicity``
+    parameter.
 
 **hostname**
     The name of the host that will be reported to monitoring servers. The default value is the
@@ -107,6 +109,42 @@ Example::
         - type: used_inodes_percent
           warn: 80%
           crit: 90%
+          periodicity: 300
  
 A plugin may be defined many times in the list. This allows to run the same checks with different
 configurations parameters.
+
+Plugin parameters
+'''''''''''''''''
+
+Some plugins accept additional configuration options, for example::
+
+    - type: Redis
+      checks: ...
+      config:
+        host: localhost
+        port: 6379
+
+Unfortunately the parameters accepted by each plugins are not yet documented.
+
+Check parameters
+''''''''''''''''
+
+**type**
+    The kind of check as defined by the plugin. All types available are listed by the command
+    ``sauna list-available-checks``.
+
+**warn**
+    The warning threshold for the check.
+
+**crit**
+    The critical threshold for the check.
+
+**name**
+    Optional, overrides the default generated name of the check which is in the form
+    ``plugin_type``. It becomes necessary to override the name when more than one checks of the
+    same plugin and type are defined simultaneously.
+
+**periodicity**
+    Optional, overrides the global periodicity for this check. Used to run a check at a different
+    frequency than the others.
