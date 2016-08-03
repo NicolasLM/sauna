@@ -1,3 +1,10 @@
+sauna (0.0.13-1) unstable; urgency=low
+
+  * Allow to run checks with different frequencies
+  * New command Status to display the current status of checks
+
+ -- Nicolas Le Manchet <nicolas@lemanchet.fr>  Wed, 03 Aug 2016 14:30:58 +0200
+
 sauna (0.0.12-1) unstable; urgency=low
 
   * Plugin Redis: monitor length of lists
