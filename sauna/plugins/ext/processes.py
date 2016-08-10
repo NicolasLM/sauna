@@ -132,7 +132,12 @@ class Processes(PsutilPlugin):
         :rtype int
         """
         with open('/proc/sys/fs/file-nr') as f:
-            file_nr = f.read()
+            # Weird behavior on Python 3.2 on Wheezy:
+            # f.read() does not return the entire content of this
+            # particular file while it should according to the docs.
+            # As the file only contains a single line, f.readline()
+            # does the job.
+            file_nr = f.readline()
         match = re.match(r'^(\d+)\t\d+\t(\d+)$', file_nr)
         if not match:
             raise Exception('Cannot parse /proc/sys/fs/file-nr')
