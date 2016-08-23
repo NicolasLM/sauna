@@ -1,3 +1,9 @@
+sauna (0.0.14-1) unstable; urgency=low
+
+  * New plugin Ntpd
+
+ -- Nicolas Le Manchet <nicolas@lemanchet.fr>  Tue, 23 Aug 2016 11:48:35 +0200
+
 sauna (0.0.13-1) unstable; urgency=low
 
   * Allow to run checks with different frequencies
