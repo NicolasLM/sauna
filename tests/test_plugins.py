@@ -8,7 +8,7 @@ except ImportError:
 from sauna.plugins import (human_to_bytes, bytes_to_human, Plugin,
                            PluginRegister)
 from sauna.plugins.ext import (puppet_agent, postfix, memcached, processes,
-                               hwmon, mdstat)
+                               hwmon, mdstat, ntpd)
 
 
 class PluginsTest(unittest.TestCase):
@@ -552,4 +552,53 @@ class MDStatPluginTest(unittest.TestCase):
         self.assertTupleEqual(
             self.mdstat.status({}),
             (Plugin.STATUS_CRIT, 'md0 uses 1/2 devices')
+        )
+
+
+class NtpdPluginTest(unittest.TestCase):
+
+    def setUp(self):
+        self.ntpd = ntpd.Ntpd({})
+
+    def test_positive_offset(self):
+        self.ntpd._last_loop_stats = {
+            'offset': 0.1
+        }
+        self.assertTupleEqual(
+            self.ntpd.offset({'warn': 0.2, 'crit': 0.4}),
+            (Plugin.STATUS_OK, 'Last time offset: 0.100s')
+        )
+        self.assertTupleEqual(
+            self.ntpd.offset({'warn': 0.1, 'crit': 0.4}),
+            (Plugin.STATUS_WARN, 'Last time offset: 0.100s')
+        )
+        self.assertTupleEqual(
+            self.ntpd.offset({'warn': 0.01, 'crit': 0.04}),
+            (Plugin.STATUS_CRIT, 'Last time offset: 0.100s')
+        )
+
+    def test_negative_offset(self):
+        self.ntpd._last_loop_stats = {
+            'offset': -0.04
+        }
+        self.assertTupleEqual(
+            self.ntpd.offset({'warn': 0.02, 'crit': 0.5}),
+            (Plugin.STATUS_WARN, 'Last time offset: -0.040s')
+        )
+
+    @mock.patch('sauna.plugins.ext.ntpd.time')
+    def test_delta(self, mock_time):
+        mock_time.time.return_value = 1471940731
+        self.ntpd._last_loop_stats = {
+            'timestamp': 1471940731
+        }
+        self.assertTupleEqual(
+            self.ntpd.last_sync_delta({'warn': 60, 'crit': 300}),
+            (Plugin.STATUS_OK, 'Ntp sync 0:00:00 ago')
+        )
+
+        mock_time.time.return_value = 1471950731
+        self.assertTupleEqual(
+            self.ntpd.last_sync_delta({'warn': 60, 'crit': 300}),
+            (Plugin.STATUS_CRIT, 'Ntp sync 2:46:40 ago')
         )
