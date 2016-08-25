@@ -86,3 +86,35 @@ Run sauna::
 
 .. note:: Nagios plugins may be convenient but they rely on forking a process for each check.
           Consider using some of the lighter sauna core plugins if this is an issue.
+
+Passive host checks
+-------------------
+
+When it is not possible to check if a host is alive by sending a ping (for instance when the host
+is in a private network), Nagios and Shinken can use passive host checks submitted via NSCA.
+
+Passive host checks work like normal service checks, except that they don't carry a service name::
+
+    ---
+    plugins:
+
+      - type: Dummy
+        checks:
+          - type: dummy
+            name: ""
+            status: 0
+            output: Host is up and running
+
+Configure your monitoring server to consider your host down if no passive host check has been
+received for one minute::
+
+    define host {
+        address                192.168.20.3
+        host_name              test
+        use                    generic-host
+        check_command          check_dummy!2
+        active_checks_enabled  0
+        passive_checks_enabled 1
+        check_freshness        1
+        freshness_threshold    60
+    }

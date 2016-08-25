@@ -205,9 +205,11 @@ class Sauna:
                     exit(1)
                 check_func = getattr(plugin, func_name)
 
-                check_name = (check.get('name') or '{}_{}'.format(
-                    plugin_name, check['type']
-                ).lower())
+                # An empty string is a valid check name
+                check_name = check.get(
+                    'name',
+                    '{}_{}'.format(plugin_name, check['type'])
+                ).lower()
 
                 check_periodicity = (check.get('periodicity') or
                                      self.periodicity)

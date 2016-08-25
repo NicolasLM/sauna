@@ -8,7 +8,7 @@ except ImportError:
 from sauna.plugins import (human_to_bytes, bytes_to_human, Plugin,
                            PluginRegister)
 from sauna.plugins.ext import (puppet_agent, postfix, memcached, processes,
-                               hwmon, mdstat, ntpd)
+                               hwmon, mdstat, ntpd, dummy)
 
 
 class PluginsTest(unittest.TestCase):
@@ -601,4 +601,24 @@ class NtpdPluginTest(unittest.TestCase):
         self.assertTupleEqual(
             self.ntpd.last_sync_delta({'warn': 60, 'crit': 300}),
             (Plugin.STATUS_CRIT, 'Ntp sync 2:46:40 ago')
+        )
+
+
+class DummyPluginTest(unittest.TestCase):
+
+    def setUp(self):
+        self.dummy = dummy.Dummy({})
+
+    def test_dummy(self):
+        self.assertTupleEqual(
+            self.dummy.dummy({}),
+            (Plugin.STATUS_OK, 'OK')
+        )
+        self.assertTupleEqual(
+            self.dummy.dummy({'status': 1}),
+            (Plugin.STATUS_WARN, 'OK')
+        )
+        self.assertTupleEqual(
+            self.dummy.dummy({'output': 'Alright'}),
+            (Plugin.STATUS_OK, 'Alright')
         )
