@@ -74,4 +74,4 @@ More information about how to contribute are available on the `development guide
 License
 -------
 
-MIT
+BSD

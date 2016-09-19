@@ -24,7 +24,7 @@ setup(
     url='https://github.com/NicolasLM/sauna',
     author='Nicolas Le Manchet',
     author_email='nicolas@lemanchet.fr',
-    license='MIT',
+    license='BSD',
 
     # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
     classifiers=[
@@ -33,7 +33,7 @@ setup(
         'Intended Audience :: System Administrators',
         'Topic :: System :: Monitoring',
         'Topic :: System :: Systems Administration',
-        'License :: OSI Approved :: MIT License',
+        'License :: OSI Approved :: BSD License',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.2',
         'Programming Language :: Python :: 3.3',

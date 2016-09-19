@@ -6,7 +6,7 @@ Frequently Asked Questions
 What is the licence?
 --------------------
 
-Sauna is released under the :download:`MIT license <../../LICENSE>`.
+Sauna is released under the :download:`BSD license <../../LICENSE>`.
 
 Where does that name come from?
 -------------------------------
