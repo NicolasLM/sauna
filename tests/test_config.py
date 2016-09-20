@@ -140,6 +140,44 @@ class ConfigTest(unittest.TestCase):
         for elem in sauna.plugins_checks:
             self.assertIn(elem, expected_result, 'missing element')
 
+    def test_consumers_dict_conf(self):
+        dict_conf = {
+            'consumers': {
+                'NSCA': {
+                    'foo': 'bar'
+                },
+                'Stdout': None
+            }
+        }
+        expected_result = [
+            {
+                'type': 'NSCA',
+                'foo': 'bar'
+            },
+            {
+                'type': 'Stdout',
+            }
+        ]
+        sauna = Sauna(config=dict_conf)
+        for r in expected_result:
+            self.assert_(r in sauna.consumers)
+
+    def test_consumers_list_conf(self):
+        list_conf = {
+            'consumers': [
+                {
+                    'type': 'NSCA',
+                    'foo': 'bar'
+                },
+                {
+                    'type': 'Stdout',
+                }
+            ]
+        }
+        sauna = Sauna(config=list_conf)
+        for r in list_conf['consumers']:
+            self.assert_(r in sauna.consumers)
+
     def test_merge_config(self):
         original = {
             'periodicity': 60,

@@ -168,6 +168,6 @@ class TCPServerConsumer(AsyncConsumer):
     def config_sample():
         return '''
         # Listen on a TCP port and serve results to incoming connections
-        TCPServer:
+        - type: TCPServer
           port: 5555
         '''
