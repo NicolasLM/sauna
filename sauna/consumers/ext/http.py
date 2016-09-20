@@ -41,7 +41,7 @@ class HTTPConsumer(QueuedConsumer):
         return '''
         # Posts a service check trough HTTP
         # Payload is serialized in JSON
-        HTTP:
+        - type: HTTP
           url: http://server.tld/services
           timeout: 60
           headers:

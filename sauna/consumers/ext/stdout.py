@@ -14,5 +14,5 @@ class StdoutConsumer(QueuedConsumer):
     def config_sample():
         return '''
         # Just prints checks on the standard output
-        Stdout:
+        - type: Stdout
         '''
