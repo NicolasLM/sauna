@@ -1,4 +1,5 @@
 from sauna.plugins import Plugin, PluginRegister
+from sauna.plugins.ext.http import HTTP
 from sauna import DependencyError
 import re
 import json
@@ -7,15 +8,9 @@ my_plugin = PluginRegister('HTTP-JSON')
 
 
 @my_plugin.plugin()
-class HTTPJSON(Plugin):
+class HTTPJSON(HTTP):
     def __init__(self, config):
         super().__init__(config)
-        try:
-            import requests
-            self.requests = requests
-        except ImportError:
-            raise DependencyError(self.__class__.__name__, 'requests',
-                                  'requests', 'python3-requests')
         try:
             import jsonpath_rw as jsonpath
             self.jsonpath = jsonpath
@@ -25,17 +20,11 @@ class HTTPJSON(Plugin):
 
     @my_plugin.check()
     def request(self, check_config):
-        method = check_config.get('method', 'GET').upper()
-        timeout = check_config.get('timeout', 10000) / 1000
         code = check_config.get('code', 200)
         expect = check_config.get('expect', None)
 
-        verify_ca_crt = check_config.get('verify_ca_crt', True)
-
         try:
-            r = self.requests.request(method, check_config['url'],
-                                      verify=verify_ca_crt,
-                                      timeout=timeout)
+            r = self._do_http_request(check_config)
         except Exception as e:
             return Plugin.STATUS_CRIT, '{}'.format(e)
 

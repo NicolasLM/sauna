@@ -18,16 +18,11 @@ class HTTP(Plugin):
 
     @my_plugin.check()
     def request(self, check_config):
-        method = check_config.get('method', 'GET').upper()
-        timeout = check_config.get('timeout', 10000) / 1000
         code = check_config.get('code', 200)
         content = check_config.get('content', '')
-        verify_ca_crt = check_config.get('verify_ca_crt', True)
 
         try:
-            r = self.requests.request(method, check_config['url'],
-                                      verify=verify_ca_crt,
-                                      timeout=timeout)
+            r = self._do_http_request(check_config)
         except Exception as e:
             return Plugin.STATUS_CRIT, '{}'.format(e)
 
@@ -46,6 +41,16 @@ class HTTP(Plugin):
             self._value_to_status_less(elapsed_ms, check_config),
             'HTTP {} in {} ms'.format(r.status_code, elapsed_ms)
         )
+
+    def _do_http_request(self, check_config):
+        method = check_config.get('method', 'GET').upper()
+        timeout = check_config.get('timeout', 10000) / 1000
+        verify_ca_crt = check_config.get('verify_ca_crt', True)
+        url = check_config['url']
+
+        return self.requests.request(method, url,
+                                     verify=verify_ca_crt,
+                                     timeout=timeout)
 
     @staticmethod
     def config_sample():
