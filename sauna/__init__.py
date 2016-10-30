@@ -12,6 +12,7 @@ import pkgutil
 import re
 import sys
 import glob
+import functools
 
 from sauna import plugins, consumers
 from sauna.plugins.base import Check
@@ -136,8 +137,15 @@ class Sauna:
         return file_path
 
     @property
+    @functools.lru_cache()
     def hostname(self):
-        return self.config.get('hostname', socket.getfqdn())
+        # socket.getfqdn can be a very long call
+        # make sure to only call it when absolutely necessary
+        # that's why a cache is used and dict.get() is avoided
+        try:
+            return self.config['hostname']
+        except KeyError:
+            return socket.getfqdn()
 
     @property
     def periodicity(self):
