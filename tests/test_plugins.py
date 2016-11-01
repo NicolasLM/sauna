@@ -109,6 +109,21 @@ class PluginsTest(unittest.TestCase):
         self.assert_(issubclass(load_plugin['plugin_cls'], Plugin))
         self.assertIsNone(PluginRegister.get_plugin('Unknown'))
 
+    def test_status_code_to_str(self):
+        self.assertEquals(Plugin.status_code_to_str(Plugin.STATUS_OK), 'OK')
+        self.assertEquals(
+            Plugin.status_code_to_str(Plugin.STATUS_WARN), 'WARNING'
+        )
+        self.assertEquals(
+            Plugin.status_code_to_str(Plugin.STATUS_CRIT), 'CRITICAL'
+        )
+        self.assertEquals(
+            Plugin.status_code_to_str(Plugin.STATUS_UNKNOWN), 'UNKNOWN'
+        )
+        self.assertEquals(
+            Plugin.status_code_to_str(42), 'UNKNOWN'
+        )
+
 
 class PuppetAgentTest(unittest.TestCase):
     def setUp(self):

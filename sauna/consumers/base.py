@@ -1,5 +1,7 @@
 import time
 import logging
+from functools import reduce
+from copy import deepcopy
 
 
 class Consumer:
@@ -10,9 +12,10 @@ class Consumer:
         self.stale_age = config.get('stale_age', 300)
         self.retry_delay = 10
 
-    def logging(self, lvl, message):
+    @classmethod
+    def logging(cls, lvl, message):
         log = getattr(logging, lvl)
-        message = '[{}] {}'.format(self.__class__.__name__, message)
+        message = '[{}] {}'.format(cls.__name__, message)
         log(message)
 
     def run(self, must_stop, queue):
@@ -76,4 +79,40 @@ class AsyncConsumer(Consumer):
     It is up to the consumer to read the checks when it needs to. No
     queueing is made.
     """
-    pass
+
+    @classmethod
+    def get_current_status(cls):
+        """Get the worse status of all check results.
+
+        :returns: (status as str, code)
+        :rtype: tuple
+        """
+        from sauna.plugins.base import Plugin
+        from sauna import check_results_lock, check_results
+
+        def reduce_status(accumulated, update_value):
+            if update_value.status > Plugin.STATUS_CRIT:
+                return accumulated
+            return accumulated if accumulated > update_value.status else \
+                update_value.status
+
+        with check_results_lock:
+            code = reduce(reduce_status, check_results.values(), 0)
+
+        return Plugin.status_code_to_str(code), code
+
+    @classmethod
+    def get_checks_as_dict(cls):
+        from sauna.plugins.base import Plugin
+        from sauna import check_results_lock, check_results
+
+        checks = {}
+        with check_results_lock:
+            for service_check in check_results.values():
+                checks[service_check.name] = {
+                    'status': Plugin.status_code_to_str(service_check.status),
+                    'code': service_check.status,
+                    'timestamp': service_check.timestamp,
+                    'output': service_check.output
+                }
+        return deepcopy(checks)
