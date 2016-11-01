@@ -1,4 +1,5 @@
 import unittest
+
 try:
     from unittest import mock
 except ImportError:
@@ -8,11 +9,11 @@ except ImportError:
 from sauna.plugins import (human_to_bytes, bytes_to_human, Plugin,
                            PluginRegister)
 from sauna.plugins.ext import (puppet_agent, postfix, memcached, processes,
-                               hwmon, mdstat, ntpd, dummy)
+                               hwmon, mdstat, ntpd, dummy, http_json)
+import requests_mock
 
 
 class PluginsTest(unittest.TestCase):
-
     def test_human_to_bytes(self):
         self.assertEquals(0, human_to_bytes('0'))
         self.assertEquals(1000, human_to_bytes('1000'))
@@ -26,8 +27,8 @@ class PluginsTest(unittest.TestCase):
         self.assertEquals('0B', bytes_to_human(0))
         self.assertEquals('1000B', bytes_to_human(1000))
         self.assertEquals('1.0K', bytes_to_human(1024))
-        self.assertEquals('5.0M', bytes_to_human(5*1024*1024))
-        self.assertEquals('10.0G', bytes_to_human(10*1024*1024*1024))
+        self.assertEquals('5.0M', bytes_to_human(5 * 1024 * 1024))
+        self.assertEquals('10.0G', bytes_to_human(10 * 1024 * 1024 * 1024))
 
     def test_strip_percent_sign(self):
         self.assertEquals(10, Plugin._strip_percent_sign('10'))
@@ -63,6 +64,7 @@ class PluginsTest(unittest.TestCase):
         # Test with modifier
         def double(number):
             return number * 2
+
         self.assertTupleEqual(
             (190, 150),
             Plugin.get_thresholds(check_config, double)
@@ -109,7 +111,6 @@ class PluginsTest(unittest.TestCase):
 
 
 class PuppetAgentTest(unittest.TestCase):
-
     def setUp(self):
         self.agent = puppet_agent.PuppetAgent({})
 
@@ -184,7 +185,6 @@ class PuppetAgentTest(unittest.TestCase):
 
 
 class PostfixTest(unittest.TestCase):
-
     def setUp(self):
         self.postfix = postfix.Postfix({})
 
@@ -228,7 +228,6 @@ class PostfixTest(unittest.TestCase):
 
 
 class MemcachedTest(unittest.TestCase):
-
     def setUp(self):
         self.memcached = memcached.Memcached({})
 
@@ -293,7 +292,6 @@ END
 
 
 class ProcessesTest(unittest.TestCase):
-
     def setUp(self):
         Processes = processes.Processes
         Processes.__init__ = lambda *args, **kwargs: None
@@ -430,7 +428,6 @@ class ProcessesTest(unittest.TestCase):
 
 
 class HwmonPluginTest(unittest.TestCase):
-
     def setUp(self):
         self.hwmon = hwmon.Hwmon({})
 
@@ -486,7 +483,6 @@ class HwmonPluginTest(unittest.TestCase):
 
 
 class MDStatPluginTest(unittest.TestCase):
-
     def setUp(self):
         self.mdstat = mdstat.MDStat({})
 
@@ -556,7 +552,6 @@ class MDStatPluginTest(unittest.TestCase):
 
 
 class NtpdPluginTest(unittest.TestCase):
-
     def setUp(self):
         self.ntpd = ntpd.Ntpd({})
 
@@ -605,7 +600,6 @@ class NtpdPluginTest(unittest.TestCase):
 
 
 class DummyPluginTest(unittest.TestCase):
-
     def setUp(self):
         self.dummy = dummy.Dummy({})
 
@@ -622,3 +616,71 @@ class DummyPluginTest(unittest.TestCase):
             self.dummy.dummy({'output': 'Alright'}),
             (Plugin.STATUS_OK, 'Alright')
         )
+
+
+@requests_mock.Mocker()
+class HttpJsonPluginTest(unittest.TestCase):
+    def setUp(self):
+        self.plugin = http_json.HTTPJSON({})
+
+        def make_conf(c):
+            base = {'warn': 60, 'crit': 300, 'url': 'http://mo.ck/foo'}
+            base.update(c)
+            return base
+
+        self.config = make_conf
+
+    def test_success(self, m):
+        conf = self.config({'expect': 'bar'})
+        m.get(conf['url'], text='bar')
+        status, msg = self.plugin.request(conf)
+        self.assertEqual(status, Plugin.STATUS_OK)
+
+    def test_success_regex(self, m):
+        conf = self.config({'expect': '.*not a (pipe|bar)'})
+        m.get(conf['url'], text='This is not a pipe')
+        status, msg = self.plugin.request(conf)
+        self.assertEqual(status, Plugin.STATUS_OK)
+
+    def test_success_jsonpath(self, m):
+        conf = self.config({'expect': 'spam', 'success_jsonpath': '$.foo.bar'})
+        m.get(conf['url'], text='{"foo": {"bar": "spam"}}')
+        status, msg = self.plugin.request(conf)
+        self.assertEqual(status, Plugin.STATUS_OK)
+
+    def test_success_jsonpath_multiple(self, m):
+        conf = self.config(
+            {'expect': 'spam', 'success_jsonpath': '$.foo.[a,b]'})
+        m.get(conf['url'], text='{"foo": {"a": "not spam", "b": "spam"}}')
+        status, msg = self.plugin.request(conf)
+        self.assertEqual(status, Plugin.STATUS_OK)
+
+    def test_success_jsonpath_regex(self, m):
+        conf = self.config(
+            {'expect': '.*pam', 'success_jsonpath': '$.foo.bar'})
+        m.get(conf['url'], text='{"foo": {"bar": "not spam"}}')
+        status, msg = self.plugin.request(conf)
+        self.assertEqual(status, Plugin.STATUS_OK)
+
+    def test_fail_code(self, m):
+        conf = self.config({'expect': 'ok', 'code': 200})
+        m.get(conf['url'], text='ok', status_code=250)
+        status, msg = self.plugin.request(conf)
+        self.assertEqual(status, Plugin.STATUS_CRIT)
+        self.assertEqual(msg, 'Got status code 250 instead of 200')
+
+    def test_fail_json(self, m):
+        conf = self.config({'expect': 'ok', 'success_jsonpath': '$.dummy'})
+        m.get(conf['url'], text='{"missing": "bracket"')
+        status, msg = self.plugin.request(conf)
+        self.assertEqual(status, Plugin.STATUS_CRIT)
+
+    def test_fail_jsonpath(self, m):
+        conf = self.config(
+            {'expect': 'ok', 'error_jsonpath': '$.[id,message]'})
+        m.get(conf['url'], text='{"id": 123, "message": "An error"}',
+              status_code=400)
+        status, msg = self.plugin.request(conf)
+        self.assertEqual(status, Plugin.STATUS_CRIT)
+        self.assertIn('message: An error', msg)
+        self.assertIn('id: 123', msg)
