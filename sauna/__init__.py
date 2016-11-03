@@ -1,4 +1,4 @@
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 import threading
 import queue
 import logging
@@ -25,11 +25,12 @@ __version__ = '0.0.15'
 
 ServiceCheck = namedtuple('ServiceCheck',
                           ['timestamp', 'hostname', 'name',
-                           'status', 'output'])
+                           'status', 'output', 'buckets'])
 
-# Global dict containing the last status of each check
+# Global dict holding the buckets that contain the
+# last status of each check
 # Needs to hold a lock to access it
-check_results = {}
+check_results = defaultdict(dict)
 check_results_lock = threading.Lock()
 
 try:
@@ -102,7 +103,7 @@ class Sauna:
             config = {}
         self.config = config
         self.must_stop = threading.Event()
-        self._consumers_queues = []
+        self._consumers_queues = defaultdict(set)
         self.import_submodules(__name__ + '.plugins.ext')
         self.import_submodules(__name__ + '.consumers.ext')
         for extra_plugin_path in self.config.get('extra_plugins', []):
@@ -239,8 +240,15 @@ class Sauna:
                 check_periodicity = (check.get('periodicity') or
                                      self.periodicity)
 
+                if check.get('buckets'):
+                    check_buckets = check['buckets']
+                elif plugin.config.get('buckets'):
+                    check_buckets = plugin.config['buckets']
+                else:
+                    check_buckets = ['default']
+
                 checks.append(Check(check_name, check_periodicity,
-                                    check_func, check))
+                                    check_buckets, check_func, check))
         if deps_error:
             for error in deps_error:
                 print(error)
@@ -273,9 +281,7 @@ class Sauna:
             service_check = self.launch_check(check)
             logging.debug('Pushing to consumers: {}'.
                           format(service_check.name))
-            self.send_data_to_consumers(service_check)
-            with check_results_lock:
-                check_results[service_check.name] = service_check
+            self.send_data_to_buckets(service_check)
 
     def launch_check(self, check):
         try:
@@ -291,7 +297,8 @@ class Sauna:
             hostname=self.hostname,
             name=check.name,
             status=status,
-            output=output
+            output=output,
+            buckets=check.buckets
         )
 
     def run_producer(self):
@@ -312,12 +319,39 @@ class Sauna:
         """Notify producer and consumer that they should stop."""
         if not self.must_stop.is_set():
             self.must_stop.set()
-            self.send_data_to_consumers(self.must_stop)
+            self.send_data_to_all_consumers(self.must_stop)
             logging.info('Exiting...')
 
-    def send_data_to_consumers(self, data):
-        for queue in self._consumers_queues:
+    def send_data_to_all_consumers(self, data):
+        consumers = set()
+        for c in self._consumers_queues.values():
+            consumers.update(c)
+        for queue in consumers:
             queue.put(data)
+
+    def send_data_to_buckets(self, service_check):
+        """Place a service_check into buckets queues and shared dict."""
+        queues = set()
+        for bucket in service_check.buckets:
+            queues.update(self._consumers_queues[bucket])
+        for queue in queues:
+            queue.put(service_check)
+
+        with check_results_lock:
+            for bucket in service_check.buckets:
+                check_results[bucket][service_check.name] = service_check
+
+    def init_buckets_for_consumer(self, consumer):
+        """Init the shared bucket and/or queue for a consumer.
+
+        :return: queue or None if not needed
+        """
+        if isinstance(consumer, QueuedConsumer):
+            consumer_queue = queue.Queue()
+            for bucket in consumer.buckets:
+                self._consumers_queues[bucket].add(consumer_queue)
+            return consumer_queue
+        return None
 
     def launch(self):
         # Start producer and consumer threads
@@ -342,11 +376,7 @@ class Sauna:
                 print(str(e))
                 exit(1)
 
-            if isinstance(consumer, QueuedConsumer):
-                consumer_queue = queue.Queue()
-                self._consumers_queues.append(consumer_queue)
-            else:
-                consumer_queue = None
+            consumer_queue = self.init_buckets_for_consumer(consumer)
 
             consumer_thread = threading.Thread(
                 name='consumer_{}'.format(consumer_name),

@@ -9,6 +9,7 @@ class Consumer:
             config = {}
         self.stale_age = config.get('stale_age', 300)
         self.retry_delay = 10
+        self.buckets = config.get('buckets', ['default'])
 
     def logging(self, lvl, message):
         log = getattr(logging, lvl)
