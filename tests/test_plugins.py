@@ -9,7 +9,8 @@ except ImportError:
 from sauna.plugins import (human_to_bytes, bytes_to_human, Plugin,
                            PluginRegister)
 from sauna.plugins.ext import (puppet_agent, postfix, memcached, processes,
-                               hwmon, mdstat, ntpd, dummy, http_json)
+                               hwmon, mdstat, ntpd, dummy, http_json,
+                               supervisor)
 import requests_mock
 
 
@@ -684,3 +685,129 @@ class HttpJsonPluginTest(unittest.TestCase):
         self.assertEqual(status, Plugin.STATUS_CRIT)
         self.assertIn('message: An error', msg)
         self.assertIn('id: 123', msg)
+
+
+class SupervisorPluginTest(unittest.TestCase):
+    @mock.patch('xmlrpc.client.ServerProxy')
+    def test_service(self, proxy_class):
+        proxy = mock.MagicMock()
+        proxy_class.return_value = proxy
+        proxy.supervisor.getProcessInfo.return_value = {
+            'name': 'dummy', 'statename': 'RUNNING'}
+
+        s = supervisor.Supervisor({})
+        status, msg = s.service({'service': 'dummy'})
+        self.assertEqual(status, Plugin.STATUS_OK)
+        self.assertEqual(msg, 'Service dummy RUNNING')
+
+    @mock.patch('xmlrpc.client.ServerProxy')
+    def test_service_fail(self, proxy_class):
+        proxy = mock.MagicMock()
+        proxy_class.return_value = proxy
+        proxy.supervisor.getProcessInfo.return_value = {
+            'name': 'dummy', 'statename': 'STOPPED'}
+
+        s = supervisor.Supervisor({})
+        status, msg = s.service({'service': 'dummy'})
+        self.assertEqual(status, Plugin.STATUS_CRIT)
+        self.assertEqual(msg, 'Service dummy STOPPED')
+
+    @mock.patch('xmlrpc.client.ServerProxy')
+    def test_service_custom_state(self, proxy_class):
+        proxy = mock.MagicMock()
+        proxy_class.return_value = proxy
+        proxy.supervisor.getProcessInfo.return_value = {
+            'name': 'dummy', 'statename': 'STOPPED'}
+
+        s = supervisor.Supervisor({})
+        status, msg = s.service(
+            {'service': 'dummy', 'states': {'STOPPED': 'warn'}})
+        self.assertEqual(status, Plugin.STATUS_WARN)
+        self.assertEqual(msg, 'Service dummy STOPPED')
+
+    @mock.patch('xmlrpc.client.ServerProxy')
+    def test_services(self, proxy_class):
+        proxy = mock.MagicMock()
+        proxy_class.return_value = proxy
+        proxy.supervisor.getAllProcessInfo.return_value = [
+            {'name': 'foo', 'statename': 'RUNNING'},
+            {'name': 'bar', 'statename': 'RUNNING'}
+        ]
+
+        s = supervisor.Supervisor({})
+        status, msg = s.services({})
+        self.assertEqual(status, Plugin.STATUS_OK)
+        self.assertEqual(msg, 'All 2 services OK')
+
+    @mock.patch('xmlrpc.client.ServerProxy')
+    def test_services_1fail(self, proxy_class):
+        proxy = mock.MagicMock()
+        proxy_class.return_value = proxy
+        proxy.supervisor.getAllProcessInfo.return_value = [
+            {'name': 'foo', 'statename': 'RUNNING'},
+            {'name': 'bar', 'statename': 'FATAL'}
+        ]
+
+        s = supervisor.Supervisor({})
+        status, msg = s.services({})
+        self.assertEqual(status, Plugin.STATUS_CRIT)
+        self.assertIn('bar is FATAL', msg)
+
+    @mock.patch('xmlrpc.client.ServerProxy')
+    def test_services_blacklist(self, proxy_class):
+        proxy = mock.MagicMock()
+        proxy_class.return_value = proxy
+        proxy.supervisor.getAllProcessInfo.return_value = [
+            {'name': 'foo', 'statename': 'RUNNING'},
+            {'name': 'bar', 'statename': 'FATAL'}
+        ]
+
+        s = supervisor.Supervisor({})
+        status, msg = s.services({'blacklist': ['bar']})
+        self.assertEqual(status, Plugin.STATUS_OK)
+        self.assertEqual(msg, 'All 1 services OK')
+
+    @mock.patch('xmlrpc.client.ServerProxy')
+    def test_services_whitelist(self, proxy_class):
+        proxy = mock.MagicMock()
+        proxy_class.return_value = proxy
+        proxy.supervisor.getAllProcessInfo.return_value = [
+            {'name': 'foo', 'statename': 'STOPPED'},
+            {'name': 'bar', 'statename': 'STOPPED'},
+            {'name': 'spam', 'statename': 'RUNNING'}
+        ]
+
+        s = supervisor.Supervisor({})
+        status, msg = s.services({'whitelist': ['spam']})
+        self.assertEqual(status, Plugin.STATUS_OK)
+        self.assertEqual(msg, 'All 1 services OK')
+
+    @mock.patch('xmlrpc.client.ServerProxy')
+    def test_services_status_priority(self, proxy_class):
+        proxy = mock.MagicMock()
+        proxy_class.return_value = proxy
+        proxy.supervisor.getAllProcessInfo.return_value = [
+            {'name': 'dummy', 'statename': 'RUNNING'},
+            {'name': 'foo', 'statename': 'UNKNOWN'},
+            {'name': 'bar', 'statename': 'BACKOFF'},
+            {'name': 'spam', 'statename': 'FATAL'}
+        ]
+
+        s = supervisor.Supervisor({})
+        status, msg = s.services({})
+        self.assertEqual(status, Plugin.STATUS_CRIT)
+        self.assertIn('Found 3 services out of 4 with incorrect state', msg)
+        self.assertIn('foo is UNKNOWN', msg)
+        self.assertIn('bar is BACKOFF', msg)
+        self.assertIn('spam is FATAL', msg)
+
+        status, msg = s.services({'blacklist': ['spam']})
+        self.assertEqual(status, Plugin.STATUS_WARN)
+        self.assertIn('Found 2 services out of 3 with incorrect state', msg)
+        self.assertIn('foo is UNKNOWN', msg)
+        self.assertIn('bar is BACKOFF', msg)
+
+        status, msg = s.services({'blacklist': ['spam', 'bar']})
+        self.assertEqual(status, Plugin.STATUS_UNKNOWN)
+        self.assertIn('Found 1 services out of 2 with incorrect state', msg)
+        self.assertIn('foo is UNKNOWN', msg)
