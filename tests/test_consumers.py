@@ -90,6 +90,42 @@ class ConsumersTest(unittest.TestCase):
         self.assertEquals(time_mock.sleep.call_count,
                           stdout_consumer.retry_delay)
 
+    def test_get_current_status(self):
+        foo = ServiceCheck(timestamp=42, hostname='server1',
+                           name='foo', status=0, output='foo out')
+        bar = ServiceCheck(timestamp=42, hostname='server1',
+                           name='bar', status=1, output='bar out')
+        with mock.patch.dict('sauna.check_results'):
+            self.assertEquals(base.AsyncConsumer.get_current_status(),
+                              ('OK', 0))
+        with mock.patch.dict('sauna.check_results', foo=foo):
+            self.assertEquals(base.AsyncConsumer.get_current_status(),
+                              ('OK', 0))
+        with mock.patch.dict('sauna.check_results', foo=foo, bar=bar):
+            self.assertEquals(base.AsyncConsumer.get_current_status(),
+                              ('WARNING', 1))
+
+    def test_get_checks_as_dict(self):
+        foo = ServiceCheck(timestamp=42, hostname='server1',
+                           name='foo', status=0, output='foo out')
+        bar = ServiceCheck(timestamp=42, hostname='server1',
+                           name='bar', status=1, output='bar out')
+        with mock.patch.dict('sauna.check_results', foo=foo, bar=bar):
+            self.assertDictEqual(base.AsyncConsumer.get_checks_as_dict(), {
+                'foo': {
+                    'status': 'OK',
+                    'code': 0,
+                    'timestamp': 42,
+                    'output': 'foo out'
+                },
+                'bar': {
+                    'status': 'WARNING',
+                    'code': 1,
+                    'timestamp': 42,
+                    'output': 'bar out'
+                }
+            })
+
 
 class ConsumerNSCATest(unittest.TestCase):
 
