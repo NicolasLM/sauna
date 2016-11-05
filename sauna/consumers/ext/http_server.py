@@ -49,7 +49,7 @@ class HTTPServerConsumer(AsyncConsumer):
     def config_sample():
         return '''
         # HTTP Server that exposes sauna status as a REST API
-        HTTPServer:
+        - type: HTTPServer
           port: 8080
         '''
 

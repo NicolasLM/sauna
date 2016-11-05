@@ -6,6 +6,8 @@ except ImportError:
     # Python 3.2 does not have mock in the standard library
     import mock
 
+import yaml
+
 from sauna import Sauna, _merge_config
 
 
@@ -231,3 +233,14 @@ class ConfigTest(unittest.TestCase):
         _merge_config(original,
                       {'extra_plugins': ['/opt/plugins1', '/opt/plugins2']})
         self.assertDictEqual(original, expected)
+
+    def test_assemble_config_sample(self):
+        mock_open = mock.mock_open()
+        sauna_instance = Sauna()
+        with mock.patch('builtins.open', mock_open):
+            sauna_instance.assemble_config_sample('/foo')
+        mock_open.assert_called_once_with('/foo/sauna-sample.yml', 'w')
+        f = mock_open()
+        generated_yaml_string = f.write.call_args[0][0]
+        # Will raise a yaml error if generated content is not valid yaml
+        yaml.safe_load(generated_yaml_string)
