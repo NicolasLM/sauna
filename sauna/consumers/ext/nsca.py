@@ -144,7 +144,7 @@ class NSCAConsumer(QueuedConsumer):
         # Send service check to a NSCA server
         # Only encryption methods 0 and 1 are supported
         # Max plugin output is 4096 bytes
-        NSCA:
+        - type: NSCA
           server: receiver.shinken.tld
           port: 5667
           timeout: 10

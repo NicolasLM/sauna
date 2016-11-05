@@ -69,6 +69,17 @@ class Plugin:
         check_config['crit'] = cls._strip_percent_sign(check_config['crit'])
         return check_config
 
+    @classmethod
+    def status_code_to_str(cls, status_code):
+        if status_code == Plugin.STATUS_OK:
+            return 'OK'
+        elif status_code == Plugin.STATUS_WARN:
+            return 'WARNING'
+        elif status_code == Plugin.STATUS_CRIT:
+            return 'CRITICAL'
+        else:
+            return 'UNKNOWN'
+
 
 class Check:
     def __init__(self, name, periodicity, check_func, config):

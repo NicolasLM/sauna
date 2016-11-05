@@ -73,7 +73,7 @@ Example::
 Active consumers
 ~~~~~~~~~~~~~~~~
 
-A mapping of the consumers you want to process your checks. It defines how sauna will interact with
+A list of the consumers you want to process your checks. It defines how sauna will interact with
 your monitoring server(s).
 
 Example::
@@ -81,12 +81,12 @@ Example::
     ---
     consumers:
 
-      NSCA:
+      - type: NSCA
         server: receiver.shinken.tld
         port: 5667
         timeout: 10
 
-Many consumers can be active at the same time.
+Many consumers can be active at the same time and a consumer may be used more than once.
 
 .. _configuration_plugins:
 

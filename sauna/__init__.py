@@ -12,6 +12,7 @@ import pkgutil
 import re
 import sys
 import glob
+import functools
 
 from sauna import plugins, consumers
 from sauna.plugins.base import Check
@@ -136,8 +137,15 @@ class Sauna:
         return file_path
 
     @property
+    @functools.lru_cache()
     def hostname(self):
-        return self.config.get('hostname', socket.getfqdn())
+        # socket.getfqdn can be a very long call
+        # make sure to only call it when absolutely necessary
+        # that's why a cache is used and dict.get() is avoided
+        try:
+            return self.config['hostname']
+        except KeyError:
+            return socket.getfqdn()
 
     @property
     def periodicity(self):
@@ -156,6 +164,23 @@ class Sauna:
             print('Invalid configuration, plugins must be a list or a dict')
             exit(1)
         return plugins
+
+    @property
+    def consumers(self):
+        consumers = []
+        if type(self.config['consumers']) is dict:
+            for cons_name, cons_data in self.config['consumers'].items():
+                # Consumer Stdout doesn't need configuration
+                if cons_data is None:
+                    cons_data = {}
+                cons_data.update({'type': cons_name})
+                consumers.append(cons_data)
+        elif type(self.config['consumers']) is list:
+            consumers = self.config['consumers']
+        else:
+            print('Invalid configuration, consumers must be a list or a dict')
+            exit(1)
+        return consumers
 
     def get_active_checks_name(self):
         checks = self.get_all_active_checks()
@@ -302,7 +327,9 @@ class Sauna:
         producer.start()
 
         consumers_threads = []
-        for consumer_name, consumer_config in self.config['consumers'].items():
+        for consumer_data in self.consumers:
+
+            consumer_name = consumer_data['type']
 
             consumer_info = ConsumerRegister.get_consumer(consumer_name)
             if not consumer_info:
@@ -310,7 +337,7 @@ class Sauna:
                 exit(1)
 
             try:
-                consumer = consumer_info['consumer_cls'](consumer_config)
+                consumer = consumer_info['consumer_cls'](consumer_data)
             except DependencyError as e:
                 print(str(e))
                 exit(1)
@@ -330,7 +357,7 @@ class Sauna:
             consumer_thread.start()
             consumers_threads.append(consumer_thread)
             logging.debug(
-                'Running {} with {}'.format(consumer_name, consumer_config)
+                'Running consumer {}'.format(consumer_name)
             )
 
         signal.signal(signal.SIGTERM, self.term_handler)

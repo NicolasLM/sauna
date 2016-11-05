@@ -1,10 +1,8 @@
 import socket
 import select
 from collections import defaultdict
-from functools import reduce
 
 from sauna.consumers.base import AsyncConsumer
-from sauna import check_results_lock, check_results
 from sauna.consumers import ConsumerRegister
 
 my_consumer = ConsumerRegister('TCPServer')
@@ -24,28 +22,6 @@ class TCPServerConsumer(AsyncConsumer):
         }
         self.read_wanted, self.write_wanted = ([], [])
         self.write_buffers = defaultdict(bytes)
-
-    def _get_current_status(self):
-        from sauna.plugins.base import Plugin
-
-        def reduce_status(accumulated, update_value):
-            if update_value.status > Plugin.STATUS_CRIT:
-                return accumulated
-            return accumulated if accumulated > update_value.status else \
-                update_value.status
-
-        with check_results_lock:
-            res = reduce(reduce_status, check_results.values(), 0)
-
-        if res == Plugin.STATUS_OK:
-            status = b'OK\n'
-        elif res == Plugin.STATUS_WARN:
-            status = b'WARNING\n'
-        elif res == Plugin.STATUS_CRIT:
-            status = b'CRITICAL\n'
-        else:
-            status = b'UNKNOWN\n'
-        return status
 
     def _create_server(self):
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -106,7 +82,8 @@ class TCPServerConsumer(AsyncConsumer):
             client_socket = self._accept_new_connection()
             if self.config['keepalive']:
                 self._activate_keepalive(client_socket)
-            self.write_buffers[client_socket] += self._get_current_status()
+            to_write = self.get_current_status()[0].encode() + b'\n'
+            self.write_buffers[client_socket] += to_write
             self.write_wanted.append(client_socket)
         else:
             try:
@@ -122,7 +99,8 @@ class TCPServerConsumer(AsyncConsumer):
             else:
                 self.logging('debug', 'Received data')
                 if b'\n' in read_data:
-                    self.write_buffers[s] += self._get_current_status()
+                    to_write = self.get_current_status()[0].encode() + b'\n'
+                    self.write_buffers[s] += to_write
                     self.write_wanted.append(s)
 
     def _handle_write_event(self, s):
@@ -168,6 +146,6 @@ class TCPServerConsumer(AsyncConsumer):
     def config_sample():
         return '''
         # Listen on a TCP port and serve results to incoming connections
-        TCPServer:
+        - type: TCPServer
           port: 5555
         '''
