@@ -18,6 +18,7 @@ Available commands:
 import logging
 
 from docopt import docopt, DocoptLanguageError
+from yaml.error import YAMLError
 
 import sauna
 from sauna import commands
@@ -43,15 +44,23 @@ def main():
     )
     logging.getLogger('requests').setLevel(logging.ERROR)
 
+    # Sample command needs a not configured instance of sauna
     if args.get('<command>') == 'sample':
-        # Sample command needs a not configured instance of sauna
         sauna_instance = sauna.Sauna()
         file_path = sauna_instance.assemble_config_sample('./')
         print('Created file {}'.format(file_path))
-    elif args.get('<command>'):
-        # Generic commands implemented in sauna.commands package
+        exit(0)
+
+    try:
         config = sauna.read_config(conf_file)
-        sauna_instance = sauna.Sauna(config)
+    except YAMLError as e:
+        print('YAML syntax in configuration file {} is not valid: {}'.
+              format(conf_file, e))
+        exit(1)
+    sauna_instance = sauna.Sauna(config)
+
+    # Generic commands implemented in sauna.commands package
+    if args.get('<command>'):
         argv = [args['<command>']] + args['<args>']
         try:
             func = commands.CommandRegister.all_commands[args['<command>']]
@@ -63,10 +72,7 @@ def main():
         except DocoptLanguageError:
             command_args = None
         func(sauna_instance, command_args)
-    else:
-        # Just run sauna
-        config = sauna.read_config(conf_file)
-        sauna_instance = sauna.Sauna(config)
-        sauna_instance.launch()
 
-    logging.shutdown()
+    # Just run sauna
+    else:
+        sauna_instance.launch()
