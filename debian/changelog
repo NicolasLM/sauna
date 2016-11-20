@@ -1,3 +1,13 @@
+sauna (0.0.16-1) unstable; urgency=low
+
+  * New plugin Disque to monitor the Disque Redis fork
+  * New plugin HTTP-JSON to monitor REST APIs
+  * New consumer HTTP server
+  * Allow to run many times the same consumer with different configuration
+  * Various improvements
+
+ -- Nicolas Le Manchet <nicolas@lemanchet.fr>  Thu, 20 Nov 2016 21:18:10 +0200
+
 sauna (0.0.15-1) unstable; urgency=low
 
   * Allow to send passive host checks via NSCA
