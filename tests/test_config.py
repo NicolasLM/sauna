@@ -244,3 +244,26 @@ class ConfigTest(unittest.TestCase):
         generated_yaml_string = f.write.call_args[0][0]
         # Will raise a yaml error if generated content is not valid yaml
         yaml.safe_load(generated_yaml_string)
+
+    def test_conf_with_concurrency_instantiates_threadpool(self):
+        original = {
+            'periodicity': 60,
+            'concurrency': 5,
+            'consumers': {
+                'Stdout': {}
+            },
+            'plugins': []
+        }
+        sauna = Sauna(config=original)
+        self.assertIsNotNone(sauna._thread_pool)
+
+    def test_conf_without_concurrency_no_threadpool(self):
+        original = {
+            'periodicity': 60,
+            'consumers': {
+                'Stdout': {},
+            },
+            'plugins': []
+        }
+        sauna = Sauna(config=original)
+        self.assertIsNone(sauna._thread_pool)
