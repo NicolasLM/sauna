@@ -61,6 +61,12 @@ All these parameters can be left out, in this case they take their default value
     A path containing other configuration files to include. It can be used to separate each plugin
     in its own configuration file. File globs are expanded, example ``/etc/sauna.d/*.yml``.
 
+**concurrency**
+    How many threads can process the checks at the same time. The default value of 1 means sauna will
+    run checks one by one.
+    Note that activating the concurrency system will, by default, only allow 1 check with the same name to run at the
+    same time.
+
 Example::
 
     ---

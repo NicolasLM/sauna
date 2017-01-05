@@ -13,6 +13,7 @@ import re
 import sys
 import glob
 import functools
+from concurrent.futures import ThreadPoolExecutor
 
 from sauna import plugins, consumers
 from sauna.plugins.base import Check
@@ -41,7 +42,6 @@ except AttributeError:
 
 
 class DependencyError(Exception):
-
     def __init__(self, plugin, dep_name, pypi='', deb=''):
         self.msg = '{} depends on {}. It can be installed with:\n'.format(
             plugin, dep_name
@@ -96,17 +96,24 @@ def read_config(config_file):
 
 
 class Sauna:
-
     def __init__(self, config=None):
         if config is None:
             config = {}
         self.config = config
         self.must_stop = threading.Event()
         self._consumers_queues = []
+        if self.config.get("concurrency", 1) > 1:
+            self._thread_pool = ThreadPoolExecutor(
+                max_workers=self.config.get("concurrency")
+            )
+        else:
+            self._thread_pool = None
         self.import_submodules(__name__ + '.plugins.ext')
         self.import_submodules(__name__ + '.consumers.ext')
         for extra_plugin_path in self.config.get('extra_plugins', []):
             self.import_directory_modules(extra_plugin_path)
+        self._current_checks = []
+        self._current_checks_lock = threading.Lock()
 
     @classmethod
     def assemble_config_sample(cls, path):
@@ -270,12 +277,27 @@ class Sauna:
         checks = filter(lambda x: x.periodicity == periodicity,
                         self.get_all_active_checks())
         for check in checks:
-            service_check = self.launch_check(check)
-            logging.debug('Pushing to consumers: {}'.
-                          format(service_check.name))
-            self.send_data_to_consumers(service_check)
-            with check_results_lock:
-                check_results[service_check.name] = service_check
+            if self._thread_pool:
+                with self._current_checks_lock:
+                    if check.name not in self._current_checks:
+                        self._current_checks.append(check.name)
+                        self._thread_pool.submit(self._check_helper, check)
+                    else:
+                        logging.debug(
+                            "Skipping {}, already being checked".format(
+                                check.name))
+            else:
+                self._check_helper(check)
+
+    def _check_helper(self, check):
+        service_check = self.launch_check(check)
+        logging.debug('Pushing to consumers: {}'.
+                      format(service_check.name))
+        self.send_data_to_consumers(service_check)
+        with check_results_lock:
+            check_results[service_check.name] = service_check
+        with self._current_checks_lock:
+            self._current_checks.remove(service_check.name)
 
     def launch_check(self, check):
         try:
@@ -306,6 +328,8 @@ class Sauna:
         for _ in scheduler:
             if self.must_stop.wait(timeout=scheduler.tick_duration):
                 break
+        if self._thread_pool:
+            self._thread_pool.shutdown(wait=False)
         logging.debug('Exited producer thread')
 
     def term_handler(self, *args):
