@@ -293,8 +293,8 @@ class Sauna:
 
     def _check_helper(self, check):
         service_check = self.launch_check(check)
-        logging.debug('Pushing to consumers: {}'.
-                      format(service_check.name))
+        logging.debug('Pushing check {} to {} synchronous consumers'.
+                      format(service_check.name, len(self._consumers_queues)))
         self.send_data_to_consumers(service_check)
         with check_results_lock:
             check_results[service_check.name] = service_check
@@ -348,11 +348,12 @@ class Sauna:
             queue.put(data)
 
     def launch(self):
-        # Start producer and consumer threads
-        producer = threading.Thread(
-            name='producer', target=self.run_producer
-        )
-        producer.start()
+        """Launch sauna daemon
+
+        Start consumers and producer threads.
+        """
+        signal.signal(signal.SIGTERM, self.term_handler)
+        signal.signal(signal.SIGINT, self.term_handler)
 
         consumers_threads = []
         for consumer_data in self.consumers:
@@ -368,6 +369,7 @@ class Sauna:
                 consumer = consumer_info['consumer_cls'](consumer_data)
             except DependencyError as e:
                 print(str(e))
+                self.term_handler()
                 exit(1)
 
             if isinstance(consumer, QueuedConsumer):
@@ -388,10 +390,12 @@ class Sauna:
                 'Running consumer {}'.format(consumer_name)
             )
 
-        signal.signal(signal.SIGTERM, self.term_handler)
-        signal.signal(signal.SIGINT, self.term_handler)
-
+        producer = threading.Thread(
+            name='producer', target=self.run_producer
+        )
+        producer.start()
         producer.join()
+
         self.term_handler()
 
         for consumer_thread in consumers_threads:
