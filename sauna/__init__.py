@@ -277,7 +277,11 @@ class Sauna:
         checks = filter(lambda x: x.periodicity == periodicity,
                         self.get_all_active_checks())
         for check in checks:
-            if self._thread_pool:
+            if not self._thread_pool:
+                # No threadpool, checks are executed one by one
+                self._check_helper(check)
+            else:
+                # Submit check to threadpool
                 with self._current_checks_lock:
                     if check.name not in self._current_checks:
                         self._current_checks.append(check.name)
@@ -286,8 +290,6 @@ class Sauna:
                         logging.debug(
                             "Skipping {}, already being checked".format(
                                 check.name))
-            else:
-                self._check_helper(check)
 
     def _check_helper(self, check):
         service_check = self.launch_check(check)
@@ -296,8 +298,10 @@ class Sauna:
         self.send_data_to_consumers(service_check)
         with check_results_lock:
             check_results[service_check.name] = service_check
-        with self._current_checks_lock:
-            self._current_checks.remove(service_check.name)
+
+        if self._thread_pool:
+            with self._current_checks_lock:
+                self._current_checks.remove(service_check.name)
 
     def launch_check(self, check):
         try:
