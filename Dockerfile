@@ -4,7 +4,7 @@ MAINTAINER Nicolas Le Manchet <nicolas@lemanchet.fr>
 
 RUN set -x \
     && addgroup -S sauna \
-    && adduser -D -S -h /app -G sauna sauna \
+    && adduser -u 4343 -D -S -h /app -G sauna sauna \
     && apk update \
     && apk add python3 py3-psutil py3-yaml py3-docopt py3-requests \
     && pip3 install redis pymdstat jsonpath-rw
