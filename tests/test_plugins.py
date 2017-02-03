@@ -678,6 +678,13 @@ class HttpJsonPluginTest(unittest.TestCase):
         status, msg = self.plugin.request(conf)
         self.assertEqual(status, Plugin.STATUS_OK)
 
+    def test_success_jsonpath_regex_integer(self, m):
+        conf = self.config(
+            {'expect': '42', 'success_jsonpath': '$.foo.bar'})
+        m.get(conf['url'], text='{"foo": {"bar": 42}}')
+        status, msg = self.plugin.request(conf)
+        self.assertEqual(status, Plugin.STATUS_OK)
+
     def test_fail_code(self, m):
         conf = self.config({'expect': 'ok', 'code': 200})
         m.get(conf['url'], text='ok', status_code=250)

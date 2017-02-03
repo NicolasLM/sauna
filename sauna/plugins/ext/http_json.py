@@ -51,7 +51,7 @@ class HTTPJSON(HTTP):
                             r, check_config)
                     )
                 matches = finder.find(data)
-                found = any(regex.match(match.value) for match in matches)
+                found = any(regex.match(str(match.value)) for match in matches)
             else:
                 found = bool(regex.match(r.text))
 
