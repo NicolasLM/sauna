@@ -1,4 +1,5 @@
 import unittest
+from collections import namedtuple
 
 try:
     from unittest import mock
@@ -10,7 +11,7 @@ from sauna.plugins import (human_to_bytes, bytes_to_human, Plugin,
                            PluginRegister)
 from sauna.plugins.ext import (puppet_agent, postfix, memcached, processes,
                                hwmon, mdstat, ntpd, dummy, http_json,
-                               supervisor)
+                               supervisor, simple_domain)
 import requests_mock
 
 
@@ -833,3 +834,23 @@ class SupervisorPluginTest(unittest.TestCase):
         self.assertEqual(status, Plugin.STATUS_UNKNOWN)
         self.assertIn('Found 1 services out of 2 with incorrect state', msg)
         self.assertIn('foo is UNKNOWN', msg)
+
+
+class SimpleDomainTest(unittest.TestCase):
+
+    @mock.patch('socket.getaddrinfo', autospec=True)
+    def test_domain_fail(self, getaddrinfo_mock):
+        import socket
+        getaddrinfo_mock.side_effect = socket.gaierror()
+
+        code, _ = simple_domain.SimpleDomain({}).request({'domain': 'not.pl'})
+        self.assertEqual(code, Plugin.STATUS_CRIT)
+
+    @mock.patch('socket.getaddrinfo', autospec=True)
+    def test_domain_success(self, getaddrinfo_mock):
+        getaddrinfo_mock.side_effect = [
+            [('', '', '', '', ('127.0.0.1', ''))]
+        ]
+
+        code, _ = simple_domain.SimpleDomain({}).request({'domain': 'not.pl'})
+        self.assertEqual(code, Plugin.STATUS_OK)
