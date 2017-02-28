@@ -11,7 +11,7 @@ from sauna.plugins import (human_to_bytes, bytes_to_human, Plugin,
                            PluginRegister)
 from sauna.plugins.ext import (puppet_agent, postfix, memcached, processes,
                                hwmon, mdstat, ntpd, dummy, http_json,
-                               supervisor, simple_domain)
+                               supervisor, simple_domain, network)
 import requests_mock
 
 
@@ -834,6 +834,39 @@ class SupervisorPluginTest(unittest.TestCase):
         self.assertEqual(status, Plugin.STATUS_UNKNOWN)
         self.assertIn('Found 1 services out of 2 with incorrect state', msg)
         self.assertIn('foo is UNKNOWN', msg)
+
+
+class NetworkTest(unittest.TestCase):
+    def setUp(self):
+        Network = network.Network
+        self.network = Network({})
+
+    @mock.patch('time.sleep', autospec=True)
+    @mock.patch('time.time')
+    def test_get_network_data(self, time_mock, sleep_mock):
+        time_mock.side_effect = [1, 2]
+
+        Counter = namedtuple('Counter',
+                             ['bytes_sent', 'bytes_recv', 'packets_sent',
+                              'packets_recv'])
+
+        first_counter = Counter(bytes_sent=54000, bytes_recv=12000,
+                                packets_sent=50, packets_recv=100)
+        second_counter = Counter(bytes_sent=108000, bytes_recv=36000,
+                                 packets_sent=75, packets_recv=150)
+
+        m = mock.Mock()
+        m.side_effect = [
+            {'eth0': first_counter}, {'eth0': second_counter}
+        ]
+
+        self.network.psutil.net_io_counters = m
+        kb_ul, kb_dl, p_ul, p_dl = self.network.get_network_data(
+            interface='eth0', delay=1)
+        self.assertEqual(kb_ul, 54000)
+        self.assertEqual(kb_dl, 24000)
+        self.assertEqual(p_ul, 25)
+        self.assertEqual(p_dl, 50)
 
 
 class SimpleDomainTest(unittest.TestCase):
