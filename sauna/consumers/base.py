@@ -12,8 +12,16 @@ class Consumer:
         self.stale_age = config.get('stale_age', 300)
         self.retry_delay = 10
 
+    @property
+    def logger(self):
+        return logging.getLogger('sauna.' + self.__class__.__name__)
+
     @classmethod
     def logging(cls, lvl, message):
+        """Log a message.
+
+        Deprecated, use self.logger instead. Kept for backward compatibility
+        """
         log = getattr(logging, lvl)
         message = '[{}] {}'.format(cls.__name__, message)
         log(message)
@@ -39,21 +47,20 @@ class QueuedConsumer(Consumer):
             if must_stop.is_set():
                 return
             if service_check.timestamp + self.stale_age < int(time.time()):
-                self.logging('warning', 'Dropping check because it is too old')
+                self.logger.warning('Dropping check because it is too old')
                 return
             try:
                 self._send(service_check)
-                self.logging('info', 'Check sent')
+                self.logger.info('Check sent')
                 return
             except Exception as e:
-                self.logging('warning', 'Could not send check: {}'.format(e))
+                self.logger.warning('Could not send check: {}'.format(e))
                 if must_stop.is_set():
                     return
                 self._wait_before_retry(must_stop)
 
     def _wait_before_retry(self, must_stop):
-        self.logging('info',
-                     'Waiting {}s before retry'.format(self.retry_delay))
+        self.logger.info('Waiting {}s before retry'.format(self.retry_delay))
         for i in range(self.retry_delay):
             if must_stop.is_set():
                 return
@@ -65,12 +72,9 @@ class QueuedConsumer(Consumer):
             service_check = queue.get()
             if isinstance(service_check, event_type):
                 continue
-            self.logging(
-                'debug',
-                'Got check {}'.format(service_check)
-            )
+            self.logger.debug('Got check {}'.format(service_check))
             self.try_send(service_check, must_stop)
-        self.logging('debug', 'Exited consumer thread')
+        self.logger.debug('Exited consumer thread')
 
 
 class AsyncConsumer(Consumer):

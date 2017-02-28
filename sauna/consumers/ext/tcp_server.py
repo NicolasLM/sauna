@@ -32,9 +32,7 @@ class TCPServerConsumer(AsyncConsumer):
 
     def _accept_new_connection(self):
         client_socket, address = self.server.accept()
-        self.logging(
-            'debug', 'New connection from {}'.format(address[0])
-        )
+        self.logger.debug('New connection from {}'.format(address[0]))
         self.write_wanted.append(client_socket)
         self.read_wanted.append(client_socket)
         return client_socket
@@ -67,7 +65,7 @@ class TCPServerConsumer(AsyncConsumer):
             del self.write_buffers[s]
         except KeyError:
             pass
-        self.logging('debug', 'Closed connection')
+        self.logger.debug('Closed connection')
 
     @staticmethod
     def _remove_from_list(list_, value):
@@ -89,15 +87,15 @@ class TCPServerConsumer(AsyncConsumer):
             try:
                 read_data = s.recv(4096)
             except socket.error as e:
-                self.logging('debug',
-                             'Error while receiving, closing connection: {}'
-                             .format(e))
+                self.logger.debug(
+                    'Error while receiving, closing connection: {}'.format(e)
+                )
                 self._close_socket(s)
                 return
             if len(read_data) == 0:
                 self._close_socket(s)
             else:
-                self.logging('debug', 'Received data')
+                self.logger.debug('Received data')
                 if b'\n' in read_data:
                     to_write = self.get_current_status()[0].encode() + b'\n'
                     self.write_buffers[s] += to_write
@@ -107,15 +105,15 @@ class TCPServerConsumer(AsyncConsumer):
         try:
             sent_len = s.send(self.write_buffers[s])
         except socket.error as e:
-            self.logging('debug',
-                         'Error while sending, closing connection: {}'
-                         .format(e))
+            self.logger.debug(
+                'Error while sending, closing connection: {}'.format(e)
+            )
             self._close_socket(s)
             return
         self.write_buffers[s] = self.write_buffers[s][sent_len:]
         if not self.write_buffers[s]:
             self.write_wanted.remove(s)
-            self.logging('debug', 'Sent data')
+            self.logger.debug('Sent data')
 
     def run(self, must_stop, *args):
         self._create_server()
@@ -131,7 +129,7 @@ class TCPServerConsumer(AsyncConsumer):
             )
 
             for s in errored:
-                self.logging('debug', 'Connection in error, closing it')
+                self.logger.debug('Connection in error, closing it')
                 self._close_socket(s)
 
             for s in readable:
@@ -140,7 +138,7 @@ class TCPServerConsumer(AsyncConsumer):
             for s in writable:
                 self._handle_write_event(s)
 
-        self.logging('debug', 'Exited consumer thread')
+        self.logger.debug('Exited consumer thread')
 
     @staticmethod
     def config_sample():

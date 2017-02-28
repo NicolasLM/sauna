@@ -67,6 +67,11 @@ All these parameters can be left out, in this case they take their default value
     Note that activating the concurrency system will, by default, only allow 1 check with the same name to run at the
     same time.
 
+**logging**
+    Sauna writes logs to the standard output by default. The ``logging`` parameter allows to pass a custom logging
+    configuration to change the log format, write logs to files, send them to syslog and much more. Check the
+    :ref:`logging syntax<logging_syntax>` for the details.
+
 Example::
 
     ---
@@ -154,3 +159,41 @@ Check parameters
 **periodicity**
     Optional, overrides the global periodicity for this check. Used to run a check at a different
     frequency than the others.
+
+.. _logging_syntax:
+
+Logging syntax
+~~~~~~~~~~~~~~
+
+By default Sauna writes logs with the level ``WARNING`` or the level passed by the
+``--level`` flag in the command line to the standard output.
+
+To further customize how logs are processed, Sauna can also leverage `Python dictConfig
+<https://docs.python.org/3/library/logging.config.html#dictionary-schema-details>`_. This allows the user to modify
+every aspect of the logging system, for instance:
+
+* Storing the logs in a file rotating every week
+* Silencing some log message but not others
+* Forwarding logs to syslog
+* Modifying the format of the logs
+
+To do that a dictionary configuration must be passed in the ``logging`` parameter of the configuration file. For
+example to remove the date from the record and write the message to stderr::
+
+    ---
+    logging:
+      version: 1
+      formatters:
+        simple:
+          format: '%(message)s'
+      handlers:
+        console:
+          class: logging.StreamHandler
+          formatter: simple
+          stream: ext://sys.stderr
+      root:
+        level: DEBUG
+        handlers: [console]
+
+Make sure to read the `Python logging documentation
+<https://docs.python.org/3/howto/logging.html#advanced-logging-tutorial>`_ to go further.

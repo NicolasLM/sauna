@@ -1,7 +1,9 @@
 import time
 import fractions
 from functools import reduce
-import logging
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 class Scheduler:
@@ -23,8 +25,8 @@ class Scheduler:
                                                        periodicities)
         self._jobs = jobs
         self._current_tick = 0
-        logging.debug('Scheduler has {} ticks, each one is {} seconds'.
-                      format(self._ticks, self.tick_duration))
+        logger.debug('Scheduler has {} ticks, each one is {} seconds'.
+                     format(self._ticks, self.tick_duration))
 
     @staticmethod
     def find_minimum_ticks_required(tick_duration, periodicities):
@@ -45,8 +47,8 @@ class Scheduler:
                     % job.periodicity) == 0
                 ]
         if jobs:
-            logging.debug('Tick {}, scheduled {}'.
-                          format(self._current_tick, jobs))
+            logger.debug('Tick {}, scheduled {}'.
+                         format(self._current_tick, jobs))
         self._current_tick += 1
         if self._current_tick >= self._ticks:
             self._current_tick = 0

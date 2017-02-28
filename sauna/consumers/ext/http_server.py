@@ -1,10 +1,12 @@
 import json
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from logging import getLogger
 
 from sauna.consumers.base import AsyncConsumer
 from sauna.consumers import ConsumerRegister
 from sauna import __version__
 
+logger = getLogger('sauna.HTTPServerConsumer')
 my_consumer = ConsumerRegister('HTTPServer')
 
 
@@ -43,7 +45,7 @@ class HTTPServerConsumer(AsyncConsumer):
             Handler
         )
         http_server.serve_forever()
-        self.logging('debug', 'Exited consumer thread')
+        self.logger.debug('Exited consumer thread')
 
     @staticmethod
     def config_sample():
@@ -95,7 +97,4 @@ class Handler(BaseHTTPRequestHandler):
             raise NotFoundError()
 
     def log_message(self, format, *args):
-        HTTPServerConsumer.logging(
-            'debug',
-            '{} - {}'.format(self.address_string(), format % args)
-        )
+        logger.debug('{} {}'.format(self.address_string(), format % args))

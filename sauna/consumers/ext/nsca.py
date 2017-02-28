@@ -134,8 +134,8 @@ class NSCAConsumer(QueuedConsumer):
                 self._last_good_receiver_address = receiver_address
                 return
             except OSError as e:
-                self.logging('info', 'Could not send check to receiver {}: '
-                             '{}'.format(receiver_address, e))
+                self.logger.info('Could not send check to receiver {}: '
+                                 '{}'.format(receiver_address, e))
         raise IOError('No receiver accepted the check')
 
     @staticmethod
