@@ -1,3 +1,13 @@
+sauna (0.0.17-1) unstable; urgency=low
+
+  * Allow checks to run concurrently in multiple threads
+  * Plugin HTTP-JSON: fix bug when expected value is not a string
+  * New plugin SimpleDomain to monitor DNS entries
+  * New plugin Network to monitor Linux network throughput
+  * More flexible logging system
+
+ -- Nicolas Le Manchet <nicolas@lemanchet.fr>  Tue, 01 Mar 2017 19:40:15 +0100
+
 sauna (0.0.16-1) unstable; urgency=low
 
   * New plugin Disque to monitor the Disque Redis fork
