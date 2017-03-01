@@ -1,4 +1,5 @@
 import copy
+import logging
 
 
 class Plugin:
@@ -22,6 +23,10 @@ class Plugin:
         if config is None:
             config = {}
         self.config = config
+
+    @property
+    def logger(self):
+        return logging.getLogger('sauna.' + self.__class__.__name__)
 
     @classmethod
     def get_thresholds(cls, check_config, modifier=None):

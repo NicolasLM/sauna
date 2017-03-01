@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Daemon that runs and reports health checks
 
+Documentation https://sauna.readthedocs.io
+
 Usage:
   sauna [--level=<lvl>] [--config=FILE] [<command> <args>...]
   sauna sample
@@ -16,6 +18,7 @@ Options:
 Available commands:
 """
 import logging
+import logging.config
 
 from docopt import docopt, DocoptLanguageError
 from yaml.error import YAMLError
@@ -38,11 +41,10 @@ def main():
     args = docopt(doc, version=sauna.__version__, options_first=True)
     conf_file = args['--config']
     logging.basicConfig(
-        format='%(asctime)s - %(levelname)-8s - %(message)s',
+        format='%(asctime)s - %(levelname)-8s - %(name)s: %(message)s',
         datefmt='%Y/%m/%d %H:%M:%S',
         level=getattr(logging, args['--level'].upper(), 'WARN')
     )
-    logging.getLogger('requests').setLevel(logging.ERROR)
 
     # Sample command needs a not configured instance of sauna
     if args.get('<command>') == 'sample':
@@ -57,6 +59,11 @@ def main():
         print('YAML syntax in configuration file {} is not valid: {}'.
               format(conf_file, e))
         exit(1)
+
+    if 'logging' in config:
+        # Override the logging configuration with the one from the config file
+        logging.config.dictConfig(config['logging'])
+
     sauna_instance = sauna.Sauna(config)
 
     # Generic commands implemented in sauna.commands package
@@ -76,3 +83,5 @@ def main():
     # Just run sauna
     else:
         sauna_instance.launch()
+
+    logging.shutdown()

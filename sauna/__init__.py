@@ -1,7 +1,7 @@
 from collections import namedtuple
 import threading
 import queue
-import logging
+from logging import getLogger
 import time
 import socket
 import os
@@ -23,6 +23,7 @@ from sauna.plugins import PluginRegister
 from sauna.scheduler import Scheduler, Job
 
 __version__ = '0.0.16'
+logger = getLogger(__name__)
 
 ServiceCheck = namedtuple('ServiceCheck',
                           ['timestamp', 'hostname', 'name',
@@ -287,14 +288,14 @@ class Sauna:
                         self._current_checks.append(check.name)
                         self._thread_pool.submit(self._check_helper, check)
                     else:
-                        logging.debug(
+                        logger.debug(
                             "Skipping {}, already being checked".format(
                                 check.name))
 
     def _check_helper(self, check):
         service_check = self.launch_check(check)
-        logging.debug('Pushing check {} to {} synchronous consumers'.
-                      format(service_check.name, len(self._consumers_queues)))
+        logger.debug('Pushing check {} to {} synchronous consumers'.
+                     format(service_check.name, len(self._consumers_queues)))
         self.send_data_to_consumers(service_check)
         with check_results_lock:
             check_results[service_check.name] = service_check
@@ -307,7 +308,7 @@ class Sauna:
         try:
             status, output = check.run_check()
         except Exception as e:
-            logging.warning('Could not run check {}: {}'.format(
+            logger.warning('Could not run check {}: {}'.format(
                 check.name, str(e)
             ))
             status = 3
@@ -325,8 +326,8 @@ class Sauna:
                          for check in self.get_all_active_checks()}
         jobs = [Job(p, self.launch_and_publish_checks_with_periodicity, p)
                 for p in periodicities]
-        logging.info('Running checks with interval: {}'
-                     .format(str(periodicities)))
+        logger.info('Running checks with interval: {}'
+                    .format(str(periodicities)))
         scheduler = Scheduler(jobs)
 
         for _ in scheduler:
@@ -334,14 +335,14 @@ class Sauna:
                 break
         if self._thread_pool:
             self._thread_pool.shutdown(wait=False)
-        logging.debug('Exited producer thread')
+        logger.debug('Exited producer thread')
 
     def term_handler(self, *args):
         """Notify producer and consumer that they should stop."""
         if not self.must_stop.is_set():
             self.must_stop.set()
             self.send_data_to_consumers(self.must_stop)
-            logging.info('Exiting...')
+            logger.info('Exiting...')
 
     def send_data_to_consumers(self, data):
         for queue in self._consumers_queues:
@@ -386,7 +387,7 @@ class Sauna:
 
             consumer_thread.start()
             consumers_threads.append(consumer_thread)
-            logging.debug(
+            logger.debug(
                 'Running consumer {}'.format(consumer_name)
             )
 
@@ -401,7 +402,7 @@ class Sauna:
         for consumer_thread in consumers_threads:
             consumer_thread.join()
 
-        logging.debug('Exited main thread')
+        logger.debug('Exited main thread')
 
     @classmethod
     def import_submodules(cls, entity):
@@ -421,14 +422,14 @@ class Sauna:
         try:
             entries = os.listdir(path)
         except OSError as e:
-            logging.error('Cannot load plugins from {}: {}'.format(path, e))
+            logger.error('Cannot load plugins from {}: {}'.format(path, e))
             return
-        logging.info('Loading extra plugins from {}'.format(path))
+        logger.info('Loading extra plugins from {}'.format(path))
         sys.path.append(path)
         for entry in entries:
             if not os.path.isfile(os.path.join(path, entry)):
                 continue
             regexp_result = re.search(r'(.+)\.py$', entry)
             if regexp_result:
-                logging.debug('Loading {}'.format(regexp_result.groups()[0]))
+                logger.debug('Loading {}'.format(regexp_result.groups()[0]))
                 cls.import_submodules(regexp_result.groups()[0])
