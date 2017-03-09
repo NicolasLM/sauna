@@ -410,7 +410,7 @@ class Sauna:
         entity = importlib.import_module(entity)
         try:
             for _, name, is_pkg in pkgutil.walk_packages(entity.__path__):
-                if not name.startswith('_') and is_pkg is False:
+                if not name.startswith('_'):
                     full_name = entity.__name__ + '.' + name
                     importlib.import_module(full_name)
         except AttributeError:

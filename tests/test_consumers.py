@@ -1,6 +1,7 @@
 import unittest
 import threading
 import socket
+import os
 try:
     from unittest import mock
 except ImportError:
@@ -10,6 +11,7 @@ except ImportError:
 from sauna import Sauna, ServiceCheck
 from sauna.consumers import base, ConsumerRegister
 from sauna.consumers.ext import nsca
+from sauna.consumers.ext.http_server.html import get_check_html
 
 
 class DumbConsumer(base.QueuedConsumer):
@@ -195,3 +197,24 @@ class ConsumerNSCATest(unittest.TestCase):
         with self.assertRaises(IOError):
             self.nsca._send(None)
         self.assertEqual(self.nsca._last_good_receiver_address, '7.7.7.7')
+
+
+class ConsumerHTTPTest(unittest.TestCase):
+    @mock.patch('sauna.consumers.base.AsyncConsumer.get_checks_as_dict')
+    def test_escape_html(self, m_get_checks_as_dict):
+        os.environ['TZ'] = 'Europe/London'
+        m_get_checks_as_dict.return_value = {
+            '<h1>test</h1>': {
+                    'status': 'Warning',
+                    'code': 1,
+                    'timestamp': 12345678,
+                    'output': "<script>test</script>"
+            }
+        }
+        html_check = get_check_html()
+        self.assertEqual(
+            html_check,
+            '<tr><td>&lt;h1&gt;test&lt;/h1&gt;</td>'
+            '<td><span class="st st_1">Warning</span></td>'
+            '<td>&lt;script&gt;test&lt;/script&gt;</td>'
+            '<td>1970-05-23 22:21:18</td></tr>')
