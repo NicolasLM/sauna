@@ -1,3 +1,4 @@
+from functools import lru_cache
 import time
 
 from sauna.plugins.base import PsutilPlugin
@@ -53,6 +54,7 @@ class Network(PsutilPlugin):
             'Download : {} p/s'.format(dl)
         )
 
+    @lru_cache()
     def get_network_data(self, interface='eth0', delay=1):
         t0 = time.time()
         counter = self.psutil.net_io_counters(pernic=True)[interface]
