@@ -202,7 +202,7 @@ class ConsumerNSCATest(unittest.TestCase):
 class ConsumerHTTPTest(unittest.TestCase):
     @mock.patch('sauna.consumers.base.AsyncConsumer.get_checks_as_dict')
     def test_escape_html(self, m_get_checks_as_dict):
-        os.environ['TZ'] = 'Europe/London'
+        os.environ['TZ'] = 'UTC'
         m_get_checks_as_dict.return_value = {
             '<h1>test</h1>': {
                     'status': 'Warning',
@@ -217,4 +217,4 @@ class ConsumerHTTPTest(unittest.TestCase):
             '<tr><td>&lt;h1&gt;test&lt;/h1&gt;</td>'
             '<td><span class="st st_1">Warning</span></td>'
             '<td>&lt;script&gt;test&lt;/script&gt;</td>'
-            '<td>1970-05-23 22:21:18</td></tr>')
+            '<td>1970-05-23 21:21:18</td></tr>')
