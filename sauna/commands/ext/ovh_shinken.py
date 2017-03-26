@@ -339,7 +339,8 @@ def synchronize_services(client, shinken_id, services, hostgroup):
                     )
 
 
-def verify_shinken_nsca(client, shinken_id, sauna_config):
+def verify_shinken_nsca(client, shinken_id, sauna_instance):
+    sauna_config = sauna_instance.config
     nsca_config = client.get('/paas/monitoring/{}/config/nsca'.
                              format(shinken_id)).json()
     shinken_hostname = client.get('/paas/monitoring/{}'.
@@ -353,9 +354,14 @@ def verify_shinken_nsca(client, shinken_id, sauna_config):
               'your OVH manager')
         return
 
-    try:
-        sauna_nsca_config = sauna_config['consumers']['NSCA']
-    except KeyError:
+    sauna_nsca_config = None
+    for consumer in sauna_instance.consumers:
+        if consumer['type'] != "NSCA":
+            continue
+        sauna_nsca_config = consumer
+        break
+
+    if not sauna_nsca_config:
         print('Warning: NSCA consumer is not enabled in sauna, add it'
               ' to your sauna.yml')
         return print_nsca_config(needed_receiver, needed_encryption,
@@ -445,7 +451,7 @@ def register_server(sauna_instance, args):
     synchronize_services(client, shinken_id, found, hostgroup)
     print('All services are synchronized')
 
-    verify_shinken_nsca(client, shinken_id, sauna_instance.config)
+    verify_shinken_nsca(client, shinken_id, sauna_instance)
 
     print('Applying configuration by reloading Shinken')
     client.post('/paas/monitoring/{}/resource/apply'.format(shinken_id))
