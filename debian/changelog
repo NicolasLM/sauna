@@ -1,3 +1,11 @@
+sauna (0.0.18-1) unstable; urgency=low
+
+  * Plugin Network: improve execution time
+  * Plugin HTTP Server: allow to serve a web dashboard
+  * Command OVH Shinken: fix parsing of configuration
+
+ -- Nicolas Le Manchet <nicolas@lemanchet.fr>  Wed, 07 Jun 2017 18:51:15 +0200
+
 sauna (0.0.17-1) unstable; urgency=low
 
   * Allow checks to run concurrently in multiple threads
