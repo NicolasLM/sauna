@@ -46,11 +46,25 @@ class HTTP(Plugin):
         method = check_config.get('method', 'GET').upper()
         timeout = check_config.get('timeout', 10000) / 1000
         verify_ca_crt = check_config.get('verify_ca_crt', True)
+        data = check_config.get('data')
+        json = check_config.get('json')
+        headers = check_config.get('headers')
+        params = check_config.get('params')
+        auth = check_config.get('auth')
+        cookies = check_config.get('cookies')
+        allow_redirects = check_config.get('allow_redirects', True)
         url = check_config['url']
 
         return self.requests.request(method, url,
                                      verify=verify_ca_crt,
-                                     timeout=timeout)
+                                     timeout=timeout,
+                                     data=data,
+                                     json=json,
+                                     headers=headers,
+                                     params=params,
+                                     auth=auth,
+                                     cookies=cookies,
+                                     allow_redirects=allow_redirects)
 
     @staticmethod
     def config_sample():
