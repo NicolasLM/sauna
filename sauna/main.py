@@ -17,6 +17,7 @@ Options:
 
 Available commands:
 """
+import sys
 import logging
 import logging.config
 
@@ -51,14 +52,14 @@ def main():
         sauna_instance = sauna.Sauna()
         file_path = sauna_instance.assemble_config_sample('./')
         print('Created file {}'.format(file_path))
-        exit(0)
+        sys.exit(0)
 
     try:
         config = sauna.read_config(conf_file)
     except YAMLError as e:
         print('YAML syntax in configuration file {} is not valid: {}'.
               format(conf_file, e))
-        exit(1)
+        sys.exit(1)
 
     if 'logging' in config:
         # Override the logging configuration with the one from the config file
@@ -73,7 +74,7 @@ def main():
             func = commands.CommandRegister.all_commands[args['<command>']]
         except KeyError:
             print('{} is not a valid command'.format(args['<command>']))
-            exit(1)
+            sys.exit(1)
         try:
             command_args = docopt(func.__doc__, argv=argv)
         except DocoptLanguageError:
