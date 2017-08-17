@@ -87,7 +87,7 @@ def read_config(config_file):
     except OSError as e:
         print('Cannot read configuration file {}: {}'
               .format(config_file, e))
-        exit(1)
+        sys.exit(1)
 
     for config_file_included in glob.glob(config.get('include', '')):
         config_included = read_config(config_file_included)
@@ -170,7 +170,7 @@ class Sauna:
             plugins = self.config['plugins']
         else:
             print('Invalid configuration, plugins must be a list or a dict')
-            exit(1)
+            sys.exit(1)
         return plugins
 
     @property
@@ -187,7 +187,7 @@ class Sauna:
             consumers = self.config['consumers']
         else:
             print('Invalid configuration, consumers must be a list or a dict')
-            exit(1)
+            sys.exit(1)
         return consumers
 
     def get_active_checks_name(self):
@@ -218,7 +218,7 @@ class Sauna:
             plugin_info = PluginRegister.get_plugin(plugin_name)
             if not plugin_info:
                 print('Plugin {} does not exist'.format(plugin_name))
-                exit(1)
+                sys.exit(1)
 
             # Configure plugin
             try:
@@ -235,7 +235,7 @@ class Sauna:
                 if func_name is None:
                     print('Unknown check {} on plugin {}'.format(check['type'],
                                                                  plugin_name))
-                    exit(1)
+                    sys.exit(1)
                 check_func = getattr(plugin, func_name)
 
                 # An empty string is a valid check name
@@ -252,7 +252,7 @@ class Sauna:
         if deps_error:
             for error in deps_error:
                 print(error)
-            exit(1)
+            sys.exit(1)
 
         # Check duplicate name
         names = [check.name for check in checks]
@@ -262,7 +262,7 @@ class Sauna:
             print("check name {} was found {} times, please add name"
                   " field to theses checks".format(name, count))
         if duplicates_names:
-            exit(1)
+            sys.exit(1)
         return checks
 
     def launch_all_checks(self):
@@ -364,14 +364,14 @@ class Sauna:
             consumer_info = ConsumerRegister.get_consumer(consumer_name)
             if not consumer_info:
                 print('Plugin {} does not exist'.format(consumer_name))
-                exit(1)
+                sys.exit(1)
 
             try:
                 consumer = consumer_info['consumer_cls'](consumer_data)
             except DependencyError as e:
                 print(str(e))
                 self.term_handler()
-                exit(1)
+                sys.exit(1)
 
             if isinstance(consumer, QueuedConsumer):
                 consumer_queue = queue.Queue()
