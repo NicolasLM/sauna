@@ -63,9 +63,9 @@ class Plugin:
     @classmethod
     def _strip_percent_sign(cls, value):
         try:
-            return int(value)
+            return float(value)
         except ValueError:
-            return int(value.split('%')[0])
+            return float(value.split('%')[0])
 
     @classmethod
     def _strip_percent_sign_from_check_config(cls, check_config):
