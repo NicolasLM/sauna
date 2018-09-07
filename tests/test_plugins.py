@@ -1,5 +1,12 @@
+import ssl
 import unittest
+import pytz
 from collections import namedtuple
+from threading import Thread
+from time import sleep
+from datetime import datetime, timedelta
+
+from tests.utils import generate_selfsigned_cert_files
 
 try:
     from unittest import mock
@@ -7,8 +14,10 @@ except ImportError:
     # Python 3.2 does not have mock in the standard library
     import mock
 
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from sauna.plugins import (human_to_bytes, bytes_to_human, Plugin,
                            PluginRegister)
+from sauna.plugins.ext.ssl_cert import SslCert
 from sauna.plugins.ext import (puppet_agent, postfix, memcached, processes,
                                hwmon, mdstat, ntpd, dummy, http_json,
                                supervisor, simple_domain, network)
@@ -887,3 +896,68 @@ class SimpleDomainTest(unittest.TestCase):
 
         code, _ = simple_domain.SimpleDomain({}).request({'domain': 'not.pl'})
         self.assertEqual(code, Plugin.STATUS_OK)
+
+
+class SslCertPluginTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.plugin = SslCert({})
+
+        # It is simpler to create new certificates than to mock the time used
+        # by the SSL lib to verify certificates (done in C code)
+        now = datetime.now(tz=pytz.UTC)
+        cert_file, key_file, temp_dir = generate_selfsigned_cert_files(
+            'localhost', now, now + timedelta(days=40)
+        )
+        cls.cert_file = cert_file
+        cls.temp_dir = temp_dir
+
+        httpd = HTTPServer(('localhost', 0), BaseHTTPRequestHandler)
+        socket = ssl.wrap_socket(httpd.socket, server_side=True,
+                                 certfile=cert_file, keyfile=key_file)
+        cls.port = socket.getsockname()[1]
+        httpd.socket = socket
+        t = Thread(name='test-https-server',
+                   target=httpd.serve_forever,
+                   daemon=True)
+        t.start()
+        cls.httpd = httpd
+        while not t.is_alive():
+            sleep(0.05)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.httpd.server_close()
+        cls.temp_dir.cleanup()
+
+    def config(self, **kwargs):
+        kwargs['host'] = 'localhost'
+        kwargs['port'] = self.port
+        kwargs['cert_file'] = self.cert_file
+        return kwargs
+
+    def test_failure_autosigned(self):
+        conf = self.config()
+        # Without our custom certfile, the server certificate will be invalid
+        del conf['cert_file']
+        status, msg = self.plugin.validity(conf)
+        self.assertEqual(status, Plugin.STATUS_CRIT)
+
+    def test_success(self):
+        # Our certificate is valid for 40 days, OK
+        conf = self.config()
+        status, msg = self.plugin.validity(conf)
+        self.assertEqual(status, Plugin.STATUS_OK)
+
+    # Cannot rely on internet for default tests, but always useful during dev
+    @unittest.skip
+    def test_success_ext(self):
+        status, msg = self.plugin.validity({'host': 'google.com'})
+        self.assertEqual(status, Plugin.STATUS_OK)
+
+    def test_failure(self):
+        # Our certificate is valid for 40 days, NOK
+        conf = self.config()
+        conf['min_valid_days'] = 60
+        status, msg = self.plugin.validity(conf)
+        self.assertEqual(status, Plugin.STATUS_WARN)
