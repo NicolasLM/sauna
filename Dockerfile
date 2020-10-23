@@ -6,8 +6,8 @@ RUN set -x \
     && addgroup -S sauna \
     && adduser -u 4343 -D -S -h /app -G sauna sauna \
     && apk update \
-    && apk add python3 py3-psutil py3-yaml py3-docopt py3-requests \
-    && pip3 install redis pymdstat jsonpath-rw
+    && apk add python3 py3-pip py3-wheel py3-psutil py3-yaml py3-docopt py3-requests py3-redis \
+    && pip install pymdstat jsonpath-rw
 
 WORKDIR /app
 
@@ -18,7 +18,7 @@ COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 
 RUN set -x \
   && chmod 755 /app/docker-entrypoint.sh \
-  && pip3 install /app \
+  && pip install /app \
   && chown sauna:sauna /app
 
 USER sauna
