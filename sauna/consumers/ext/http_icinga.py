@@ -1,14 +1,9 @@
 # forked from http.py to match icinga Rest API
-import socket
-import struct
-import binascii
-from copy import deepcopy
-import itertools
-
 from sauna.consumers.base import QueuedConsumer
 from sauna.consumers import ConsumerRegister
 
 my_consumer = ConsumerRegister('HTTP-icinga')
+
 
 @my_consumer.consumer()
 class HTTPIcingaConsumer(QueuedConsumer):
@@ -27,10 +22,13 @@ class HTTPIcingaConsumer(QueuedConsumer):
             'timeout': config.get('timeout', 60),
             'headers': config.get('headers', None)
         }
-        
+
     def _send(self, service_check):
         data = {
-            "filter": "host.name==\"" + service_check.hostname + "\" && service.name==\"" + service_check.name + "\"",
+            "filter": (
+                "host.name==\"" + service_check.hostname +
+                "\" && service.name==\"" + service_check.name + "\""
+            ),
             "exit_status": service_check.status,
             "plugin_output": service_check.output,
             "type": "Service"
