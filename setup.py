@@ -1,9 +1,3 @@
-"""A setuptools based setup module.
-
-See:
-https://packaging.python.org/en/latest/distributing.html
-https://github.com/pypa/sampleproject
-"""
 from setuptools import setup, find_packages
 from codecs import open
 from os import path
@@ -35,11 +29,11 @@ setup(
         'Topic :: System :: Systems Administration',
         'License :: OSI Approved :: BSD License',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.2',
-        'Programming Language :: Python :: 3.3',
-        'Programming Language :: Python :: 3.4',
-        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3 :: Only',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
     ],
 
     keywords='monitoring health checks nagios shinken',
@@ -51,10 +45,16 @@ setup(
         'PyYAML'
     ],
 
-    tests_require=[
-        'nose',
-        'pep8'
-    ],
+    extras_require={
+        'tests': [
+            'pytest',
+            'pycodestyle',
+            'requests-mock',
+            'pymdstat',
+            'jsonpath_rw',
+            'psutil'
+        ],
+    },
 
     entry_points={
         'console_scripts': [
