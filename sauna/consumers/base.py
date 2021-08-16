@@ -10,7 +10,8 @@ class Consumer:
         if config is None:
             config = {}
         self.stale_age = config.get('stale_age', 300)
-        self.retry_delay = 10
+        self.retry_delay = config.get('retry_delay', 10)
+        self.max_retry = config.get('max_retry', -1)
 
     @property
     def logger(self):
@@ -43,21 +44,30 @@ class QueuedConsumer(Consumer):
 
     def try_send(self, service_check, must_stop):
 
+        retry_count = 0
         while True:
+            retry_count = retry_count + 1
+
             if must_stop.is_set():
                 return
             if service_check.timestamp + self.stale_age < int(time.time()):
                 self.logger.warning('Dropping check because it is too old')
+                return
+            if self.max_retry != -1 and retry_count > self.max_retry:
+                self.logger.warning('Dropping check because'
+                                    'max_retry has been reached')
                 return
             try:
                 self._send(service_check)
                 self.logger.info('Check sent')
                 return
             except Exception as e:
-                self.logger.warning('Could not send check: {}'.format(e))
+                self.logger.warning('Could not send check (attempt {}/{}): {}'
+                                    .format(retry_count, self.max_retry, e))
                 if must_stop.is_set():
                     return
-                self._wait_before_retry(must_stop)
+                if retry_count < self.max_retry:
+                    self._wait_before_retry(must_stop)
 
     def _wait_before_retry(self, must_stop):
         self.logger.info('Waiting {}s before retry'.format(self.retry_delay))
