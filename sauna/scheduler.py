@@ -1,5 +1,5 @@
 import time
-import fractions
+import math
 from functools import reduce
 from logging import getLogger
 
@@ -19,7 +19,7 @@ class Scheduler:
         :param jobs: Sequence of jobs to schedule
         """
         periodicities = {job.periodicity for job in jobs}
-        self.tick_duration = reduce(lambda x, y: fractions.gcd(x, y),
+        self.tick_duration = reduce(lambda x, y: math.gcd(x, y),
                                     periodicities)
         self._ticks = self.find_minimum_ticks_required(self.tick_duration,
                                                        periodicities)

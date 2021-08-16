@@ -40,13 +40,13 @@ class ConsumersTest(unittest.TestCase):
         self.assertGreater(len(consumers), 1)
         for consumer_name, consumer_info in consumers.items():
             self.assertIn('consumer_cls', consumer_info)
-            self.assert_(issubclass(consumer_info['consumer_cls'],
-                                    base.Consumer))
+            self.assertTrue(issubclass(consumer_info['consumer_cls'],
+                            base.Consumer))
 
     def test_get_consumer(self):
         stdout_consumer = ConsumerRegister.get_consumer('Stdout')
-        self.assert_(issubclass(stdout_consumer['consumer_cls'],
-                                base.Consumer))
+        self.assertTrue(issubclass(stdout_consumer['consumer_cls'],
+                        base.Consumer))
         must_be_none = ConsumerRegister.get_consumer('Unknown')
         self.assertIsNone(must_be_none)
 
@@ -80,7 +80,7 @@ class ConsumersTest(unittest.TestCase):
         dumb_consumer.fail_next = True
         dumb_consumer.try_send(s, must_stop)
         self.assertIs(s, dumb_consumer.last_service_check)
-        self.assertEquals(2, dumb_consumer.times_called)
+        self.assertEqual(2, dumb_consumer.times_called)
 
     @mock.patch('sauna.consumers.base.time')
     def test_wait_before_retry(self, time_mock):
@@ -89,8 +89,8 @@ class ConsumersTest(unittest.TestCase):
                            get_consumer('Stdout')['consumer_cls']({}))
         stdout_consumer._wait_before_retry(must_stop)
         time_mock.sleep.assert_called_with(1)
-        self.assertEquals(time_mock.sleep.call_count,
-                          stdout_consumer.retry_delay)
+        self.assertEqual(time_mock.sleep.call_count,
+                         stdout_consumer.retry_delay)
 
     def test_get_current_status(self):
         foo = ServiceCheck(timestamp=42, hostname='server1',
@@ -98,14 +98,14 @@ class ConsumersTest(unittest.TestCase):
         bar = ServiceCheck(timestamp=42, hostname='server1',
                            name='bar', status=1, output='bar out')
         with mock.patch.dict('sauna.check_results'):
-            self.assertEquals(base.AsyncConsumer.get_current_status(),
-                              ('OK', 0))
+            self.assertEqual(base.AsyncConsumer.get_current_status(),
+                             ('OK', 0))
         with mock.patch.dict('sauna.check_results', foo=foo):
-            self.assertEquals(base.AsyncConsumer.get_current_status(),
-                              ('OK', 0))
+            self.assertEqual(base.AsyncConsumer.get_current_status(),
+                             ('OK', 0))
         with mock.patch.dict('sauna.check_results', foo=foo, bar=bar):
-            self.assertEquals(base.AsyncConsumer.get_current_status(),
-                              ('WARNING', 1))
+            self.assertEqual(base.AsyncConsumer.get_current_status(),
+                             ('WARNING', 1))
 
     def test_get_checks_as_dict(self):
         foo = ServiceCheck(timestamp=42, hostname='server1',
@@ -139,21 +139,21 @@ class ConsumerNSCATest(unittest.TestCase):
         data = bytes.fromhex('0000')
         iv = bytes.fromhex('0000')
         key = bytes.fromhex('0000')
-        self.assertEquals(encrypt_xor(data, iv, key), bytes.fromhex('0000'))
+        self.assertEqual(encrypt_xor(data, iv, key), bytes.fromhex('0000'))
 
         data = bytes.fromhex('0000')
         iv = bytes.fromhex('FF')
         key = bytes.fromhex('00')
-        self.assertEquals(encrypt_xor(data, iv, key), bytes.fromhex('FFFF'))
+        self.assertEqual(encrypt_xor(data, iv, key), bytes.fromhex('FFFF'))
 
         data = bytes.fromhex('7DE8')
         iv = bytes.fromhex('8ECA')
         key = bytes.fromhex('E1D0')
-        self.assertEquals(encrypt_xor(data, iv, key), bytes.fromhex('12F2'))
+        self.assertEqual(encrypt_xor(data, iv, key), bytes.fromhex('12F2'))
 
     def test_no_encryption(self):
         self.nsca.config['encryption'] = 0
-        self.assertEquals(
+        self.assertEqual(
             self.nsca._encrypt_service_payload(bytes.fromhex('EEEE'),
                                                bytes.fromhex('5555')),
             bytes.fromhex('EEEE')
@@ -161,7 +161,7 @@ class ConsumerNSCATest(unittest.TestCase):
 
     def test_xor_encryption(self):
         self.nsca.config.update({'encryption': 1, 'key': b'plop'})
-        self.assertEquals(
+        self.assertEqual(
             self.nsca._encrypt_service_payload(bytes.fromhex('EEEE'),
                                                bytes.fromhex('5555')),
             bytes.fromhex('CBD7')

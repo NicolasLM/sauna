@@ -162,7 +162,7 @@ class ConfigTest(unittest.TestCase):
         ]
         sauna = Sauna(config=dict_conf)
         for r in expected_result:
-            self.assert_(r in sauna.consumers)
+            self.assertTrue(r in sauna.consumers)
 
     def test_consumers_list_conf(self):
         list_conf = {
@@ -178,7 +178,7 @@ class ConfigTest(unittest.TestCase):
         }
         sauna = Sauna(config=list_conf)
         for r in list_conf['consumers']:
-            self.assert_(r in sauna.consumers)
+            self.assertTrue(r in sauna.consumers)
 
     def test_merge_config(self):
         original = {

@@ -17,25 +17,25 @@ import requests_mock
 
 class PluginsTest(unittest.TestCase):
     def test_human_to_bytes(self):
-        self.assertEquals(0, human_to_bytes('0'))
-        self.assertEquals(1000, human_to_bytes('1000'))
-        self.assertEquals(1024, human_to_bytes('1K'))
-        self.assertEquals(1024, human_to_bytes('1KiB'))
-        self.assertEquals(1024, human_to_bytes('1KiO'))
-        self.assertEquals(5242880, human_to_bytes('5M'))
-        self.assertEquals(10737418240, human_to_bytes('10G'))
+        self.assertEqual(0, human_to_bytes('0'))
+        self.assertEqual(1000, human_to_bytes('1000'))
+        self.assertEqual(1024, human_to_bytes('1K'))
+        self.assertEqual(1024, human_to_bytes('1KiB'))
+        self.assertEqual(1024, human_to_bytes('1KiO'))
+        self.assertEqual(5242880, human_to_bytes('5M'))
+        self.assertEqual(10737418240, human_to_bytes('10G'))
 
     def test_bytes_to_human(self):
-        self.assertEquals('0B', bytes_to_human(0))
-        self.assertEquals('1000B', bytes_to_human(1000))
-        self.assertEquals('1.0K', bytes_to_human(1024))
-        self.assertEquals('5.0M', bytes_to_human(5 * 1024 * 1024))
-        self.assertEquals('10.0G', bytes_to_human(10 * 1024 * 1024 * 1024))
+        self.assertEqual('0B', bytes_to_human(0))
+        self.assertEqual('1000B', bytes_to_human(1000))
+        self.assertEqual('1.0K', bytes_to_human(1024))
+        self.assertEqual('5.0M', bytes_to_human(5 * 1024 * 1024))
+        self.assertEqual('10.0G', bytes_to_human(10 * 1024 * 1024 * 1024))
 
     def test_strip_percent_sign(self):
-        self.assertEquals(10, Plugin._strip_percent_sign('10'))
-        self.assertEquals(10, Plugin._strip_percent_sign('10%'))
-        self.assertEquals(-10, Plugin._strip_percent_sign('-10%'))
+        self.assertEqual(10, Plugin._strip_percent_sign('10'))
+        self.assertEqual(10, Plugin._strip_percent_sign('10%'))
+        self.assertEqual(-10, Plugin._strip_percent_sign('-10%'))
 
     def test_strip_percent_sign_from_check_config(self):
         check_config = {
@@ -81,18 +81,18 @@ class PluginsTest(unittest.TestCase):
             'warn': 75,
             'crit': 95,
         }
-        self.assertEquals(Plugin.STATUS_OK, less(10, check_config))
-        self.assertEquals(Plugin.STATUS_WARN, less(80, check_config))
-        self.assertEquals(Plugin.STATUS_CRIT, less(100, check_config))
+        self.assertEqual(Plugin.STATUS_OK, less(10, check_config))
+        self.assertEqual(Plugin.STATUS_WARN, less(80, check_config))
+        self.assertEqual(Plugin.STATUS_CRIT, less(100, check_config))
 
         # Test less, imagine this check is about free RAM in percent
         check_config = {
             'warn': 25,
             'crit': 5,
         }
-        self.assertEquals(Plugin.STATUS_OK, more(50, check_config))
-        self.assertEquals(Plugin.STATUS_WARN, more(20, check_config))
-        self.assertEquals(Plugin.STATUS_CRIT, more(2, check_config))
+        self.assertEqual(Plugin.STATUS_OK, more(50, check_config))
+        self.assertEqual(Plugin.STATUS_WARN, more(20, check_config))
+        self.assertEqual(Plugin.STATUS_CRIT, more(2, check_config))
 
     def test_get_all_plugins(self):
         plugins = PluginRegister.all_plugins
@@ -101,28 +101,28 @@ class PluginsTest(unittest.TestCase):
         for plugin_name, plugin_info in plugins.items():
             self.assertIn('plugin_cls', plugin_info)
             self.assertIn('checks', plugin_info)
-            self.assert_(issubclass(plugin_info['plugin_cls'], Plugin))
+            self.assertTrue(issubclass(plugin_info['plugin_cls'], Plugin))
             self.assertIsInstance(plugin_info['checks'], dict)
 
     def test_get_plugin(self):
         import sauna
         sauna.Sauna.import_submodules('sauna.plugins.ext')
         load_plugin = PluginRegister.get_plugin('Load')
-        self.assert_(issubclass(load_plugin['plugin_cls'], Plugin))
+        self.assertTrue(issubclass(load_plugin['plugin_cls'], Plugin))
         self.assertIsNone(PluginRegister.get_plugin('Unknown'))
 
     def test_status_code_to_str(self):
-        self.assertEquals(Plugin.status_code_to_str(Plugin.STATUS_OK), 'OK')
-        self.assertEquals(
+        self.assertEqual(Plugin.status_code_to_str(Plugin.STATUS_OK), 'OK')
+        self.assertEqual(
             Plugin.status_code_to_str(Plugin.STATUS_WARN), 'WARNING'
         )
-        self.assertEquals(
+        self.assertEqual(
             Plugin.status_code_to_str(Plugin.STATUS_CRIT), 'CRITICAL'
         )
-        self.assertEquals(
+        self.assertEqual(
             Plugin.status_code_to_str(Plugin.STATUS_UNKNOWN), 'UNKNOWN'
         )
-        self.assertEquals(
+        self.assertEqual(
             Plugin.status_code_to_str(42), 'UNKNOWN'
         )
 
@@ -196,7 +196,7 @@ class PuppetAgentTest(unittest.TestCase):
                 'total': 1,
             }
         }
-        self.assertEquals(self.agent._last_run_summary, None)
+        self.assertEqual(self.agent._last_run_summary, None)
         self.assertDictEqual(self.agent.last_run_summary, expected)
         self.assertDictEqual(self.agent._last_run_summary, expected)
 
