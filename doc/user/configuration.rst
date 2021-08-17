@@ -62,15 +62,14 @@ All these parameters can be left out, in this case they take their default value
     in its own configuration file. File globs are expanded, example ``/etc/sauna.d/*.yml``.
 
 **concurrency**
-    How many threads can process the checks at the same time. The default value of 1 means sauna will
-    run checks one by one.
-    Note that activating the concurrency system will, by default, only allow 1 check with the same name to run at the
-    same time.
+    How many threads can process the checks at the same time. The default value of 1 means sauna
+    will run checks one by one. Note that activating the concurrency system will, by default, only
+    allow 1 check with the same name to run at the same time.
 
 **logging**
-    Sauna writes logs to the standard output by default. The ``logging`` parameter allows to pass a custom logging
-    configuration to change the log format, write logs to files, send them to syslog and much more. Check the
-    :ref:`logging syntax<logging_syntax>` for the details.
+    Sauna writes logs to the standard output by default. The ``logging`` parameter allows to pass
+    a custom logging configuration to change the log format, write logs to files, send them to
+    syslog and much more. Check the :ref:`logging syntax<logging_syntax>` for the details.
 
 Example::
 
@@ -88,7 +87,7 @@ A list of the consumers you want to process your checks. It defines how sauna wi
 your monitoring server(s).
 
 Example::
-   
+
     ---
     consumers:
 
@@ -104,7 +103,7 @@ Many consumers can be active at the same time and a consumer may be used more th
 Active plugins
 ~~~~~~~~~~~~~~
 
-A list of plugins and associated checks. 
+A list of plugins and associated checks.
 
 Example::
 
@@ -121,7 +120,7 @@ Example::
           warn: 80%
           crit: 90%
           periodicity: 300
- 
+
 A plugin may be defined many times in the list. This allows to run the same checks with different
 configurations parameters.
 
@@ -169,16 +168,17 @@ By default Sauna writes logs with the level ``WARNING`` or the level passed by t
 ``--level`` flag in the command line to the standard output.
 
 To further customize how logs are processed, Sauna can also leverage `Python dictConfig
-<https://docs.python.org/3/library/logging.config.html#dictionary-schema-details>`_. This allows the user to modify
-every aspect of the logging system, for instance:
+<https://docs.python.org/3/library/logging.config.html#dictionary-schema-details>`_. This allows
+the user to modify every aspect of the logging system, for instance:
 
 * Storing the logs in a file rotating every week
 * Silencing some log message but not others
 * Forwarding logs to syslog
 * Modifying the format of the logs
 
-To do that a dictionary configuration must be passed in the ``logging`` parameter of the configuration file. For
-example to remove the date from the record and write the message to stderr::
+To do that a dictionary configuration must be passed in the ``logging`` parameter of the
+configuration file. For example to remove the date from the record and write the message to
+stderr::
 
     ---
     logging:

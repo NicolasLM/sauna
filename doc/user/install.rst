@@ -57,9 +57,13 @@ allows to run sauna in a container::
 
     $ docker pull nicolaslm/sauna
 
-If you want to share the configuration between the host and the container using a volume, be carreful about file permissions.
+If you want to share the configuration between the host and the container using a volume, be
+carreful about file permissions.
 
-The configuration file might contains some sensible data like password and should not be readable for everyone. But inside the container sauna runs as user *sauna* (uid 4343) and need to read the configuration file.
-To do so, the easiest way is to create a user on the host with the same uid (4343) and chown the configuration file with this user. Then you can mount the configuration file inside the container and run sauna with ::
+The configuration file might contains some sensible data like password and should not be readable
+for everyone. But inside the container sauna runs as user *sauna* (uid 4343) and need to read the
+configuration file. To do so, the easiest way is to create a user on the host with the same uid
+(4343) and chown the configuration file with this user. Then you can mount the configuration file
+inside the container and run sauna with ::
 
     $ docker run -v /etc/sauna.yml:/app/sauna.yml:ro nicolaslm/sauna
