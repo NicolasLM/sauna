@@ -1,12 +1,15 @@
-import time
-import logging
-from functools import reduce
 from copy import deepcopy
+from datetime import timedelta, datetime
+from functools import reduce
+import logging
+from queue import Queue, Empty
+import threading
+import time
 
 
 class Consumer:
 
-    def __init__(self, config):
+    def __init__(self, config: dict):
         if config is None:
             config = {}
         self.stale_age = config.get('stale_age', 300)
@@ -29,62 +32,135 @@ class Consumer:
 
     def run(self, must_stop, queue):
         """Method to override in consumers."""
-        raise NotImplemented()
+        raise NotImplementedError()
 
 
-class QueuedConsumer(Consumer):
-    """Consumer that processes checks synchronously.
+class BatchQueuedConsumer(Consumer):
+    """Consumer that processes checks synchronously in batches.
 
-    QueuedConsumers wait for checks to appear on a queue. They process each
-    check in order until the queue is empty.
+    BatchQueuedConsumers wait for checks to appear on a queue. They buffer the
+    checks until enough of them are available. They then send all checks in a
+    single batch to the remote service.
     """
-    def _send(self, service_check):
-        """Method to override in consumers."""
-        raise NotImplemented()
 
-    def try_send(self, service_check, must_stop):
+    #: Maximum number of checks to send in a single batch.
+    max_batch_size: int = 64
+
+    #: Maximum amount of time to wait for the batch to be full before sending
+    #: it.
+    max_batch_delay: timedelta = timedelta(seconds=15)
+
+    def _send(self, service_check):
+        """Send one service checks.
+
+        Method to override in consumers sending checks one by one.
+        """
+        raise NotImplementedError()
+
+    def _send_batch(self, service_checks: list):
+        """Send a batch of service checks.
+
+        Method to override in consumers for actually sending batches, otherwise
+        checks are sent one by one using `self._send`.
+        """
+        for service_check in service_checks:
+            self._send(service_check)
+
+    def try_send(self, service_checks: list, must_stop: threading.Event):
+        try:
+            last_service_check = service_checks[-1]
+        except IndexError:
+            return
 
         retry_count = 0
         while True:
             retry_count = retry_count + 1
 
-            if must_stop.is_set():
+            if last_service_check.timestamp + self.stale_age < time.time():
+                self.logger.warning('Dropping batch because it is too old')
                 return
-            if service_check.timestamp + self.stale_age < int(time.time()):
-                self.logger.warning('Dropping check because it is too old')
-                return
+
             if self.max_retry != -1 and retry_count > self.max_retry:
-                self.logger.warning('Dropping check because'
+                self.logger.warning('Dropping batch because '
                                     'max_retry has been reached')
                 return
+
             try:
-                self._send(service_check)
-                self.logger.info('Check sent')
-                return
+                self._send_batch(service_checks)
             except Exception as e:
-                self.logger.warning('Could not send check (attempt {}/{}): {}'
+                self.logger.warning('Could not send batch (attempt {}/{}): {}'
                                     .format(retry_count, self.max_retry, e))
                 if must_stop.is_set():
                     return
-                if retry_count < self.max_retry:
+
+                if self.max_retry == -1 or retry_count < self.max_retry:
                     self._wait_before_retry(must_stop)
-
-    def _wait_before_retry(self, must_stop):
-        self.logger.info('Waiting {}s before retry'.format(self.retry_delay))
-        for i in range(self.retry_delay):
-            if must_stop.is_set():
+            else:
+                self.logger.info('Batch sent')
                 return
-            time.sleep(1)
 
-    def run(self, must_stop, queue):
-        from sauna import event_type
+    def _wait_before_retry(self, must_stop: threading.Event):
+        self.logger.info('Waiting %s s before retry', self.retry_delay)
+        must_stop.wait(timeout=self.retry_delay)
+
+    def run(self, must_stop, queue: Queue):
+        batch = list()
+        batch_created_at = datetime.utcnow()
+
         while not must_stop.is_set():
-            service_check = queue.get()
-            if isinstance(service_check, event_type):
-                continue
-            self.logger.debug('Got check {}'.format(service_check))
-            self.try_send(service_check, must_stop)
+
+            # Calculate how long to wait before the current batch
+            # should be sent.
+            if not batch:
+                wait_timeout = None
+            else:
+                wait_timeout = (
+                    batch_created_at + self.max_batch_delay - datetime.utcnow()
+                ).total_seconds()
+                if wait_timeout < 0:
+                    wait_timeout = 0
+
+            try:
+                service_check = queue.get(timeout=wait_timeout)
+            except Empty:
+                pass
+            else:
+                if not isinstance(service_check, threading.Event):
+                    self.logger.debug('Got check {}'.format(service_check))
+                    if not batch:
+                        # Current batch is empty, create a new one
+                        batch.append(service_check)
+                        batch_created_at = datetime.utcnow()
+                    else:
+                        # Current batch is not empty, just append the check
+                        batch.append(service_check)
+
+            # A batch should be sent if either:
+            #   - the batch isfull
+            #   - the first check has waited long enough in the batch
+            #   - sauna is shutting down
+            should_send_batch = (
+                len(batch) >= self.max_batch_size
+                or
+                (batch_created_at + self.max_batch_delay) < datetime.utcnow()
+                or
+                must_stop.is_set()
+            )
+            if should_send_batch:
+                self.try_send(batch, must_stop)
+                batch = list()
+
         self.logger.debug('Exited consumer thread')
+
+
+class QueuedConsumer(BatchQueuedConsumer):
+    """Consumer that processes checks synchronously one by one.
+
+    QueuedConsumers wait for checks to appear on a queue. They process each
+    check one by one in order until the queue is empty.
+    """
+
+    max_batch_size = 1
 
 
 class AsyncConsumer(Consumer):

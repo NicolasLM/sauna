@@ -17,7 +17,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from sauna import plugins, consumers
 from sauna.plugins.base import Check
-from sauna.consumers.base import QueuedConsumer
+from sauna.consumers.base import BatchQueuedConsumer, QueuedConsumer
 from sauna.consumers import ConsumerRegister
 from sauna.plugins import PluginRegister
 from sauna.scheduler import Scheduler, Job
@@ -373,7 +373,7 @@ class Sauna:
                 self.term_handler()
                 sys.exit(1)
 
-            if isinstance(consumer, QueuedConsumer):
+            if isinstance(consumer, BatchQueuedConsumer):
                 consumer_queue = queue.Queue()
                 self._consumers_queues.append(consumer_queue)
             else:

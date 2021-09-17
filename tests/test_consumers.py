@@ -62,7 +62,7 @@ class ConsumersTest(unittest.TestCase):
             output='Check okay'
         )
         dumb_consumer = DumbConsumer({})
-        dumb_consumer.try_send(s, must_stop)
+        dumb_consumer.try_send([s], must_stop)
         self.assertIs(s, dumb_consumer.last_service_check)
 
     @mock.patch('sauna.consumers.base.time')
@@ -78,19 +78,19 @@ class ConsumersTest(unittest.TestCase):
         )
         dumb_consumer = DumbConsumer({})
         dumb_consumer.fail_next = True
-        dumb_consumer.try_send(s, must_stop)
+        dumb_consumer.try_send([s], must_stop)
         self.assertIs(s, dumb_consumer.last_service_check)
         self.assertEqual(2, dumb_consumer.times_called)
 
-    @mock.patch('sauna.consumers.base.time')
-    def test_wait_before_retry(self, time_mock):
-        must_stop = threading.Event()
-        stdout_consumer = (ConsumerRegister.
-                           get_consumer('Stdout')['consumer_cls']({}))
+    def test_wait_before_retry(self):
+        must_stop = mock.Mock()
+        stdout_consumer = (
+            ConsumerRegister.get_consumer('Stdout')['consumer_cls']({})
+        )
         stdout_consumer._wait_before_retry(must_stop)
-        time_mock.sleep.assert_called_with(1)
-        self.assertEqual(time_mock.sleep.call_count,
-                         stdout_consumer.retry_delay)
+        must_stop.wait.assert_called_once_with(
+            timeout=stdout_consumer.retry_delay
+        )
 
     def test_get_current_status(self):
         foo = ServiceCheck(timestamp=42, hostname='server1',
