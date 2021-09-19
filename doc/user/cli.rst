@@ -25,7 +25,6 @@ explanation of the available commands and flags are given with ``sauna --help``:
       list-active-checks            Display the checks that sauna will run.
       list-available-checks         Display the available checks.
       list-available-consumers      Display the available consumers.
-      register                      Register a server to OVH Shinken monitoring
       status                        Show the result of active checks.
 
 When no command is given, sauna runs in the foreground. It executes and sends the checks until
