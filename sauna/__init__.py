@@ -22,7 +22,7 @@ from sauna.consumers import ConsumerRegister
 from sauna.plugins import PluginRegister
 from sauna.scheduler import Scheduler, Job
 
-__version__ = '0.0.18'
+__version__ = '0.0.19'
 logger = getLogger(__name__)
 
 ServiceCheck = namedtuple('ServiceCheck',
